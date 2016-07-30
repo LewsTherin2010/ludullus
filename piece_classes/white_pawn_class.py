@@ -1,6 +1,7 @@
 from globals_file import *
 from white_piece_class import *
 from white_queen_class import *
+import math
 
 class WhitePawn(WhitePiece):
 	def __init__(self, x, y, white, index, piece_type):
@@ -17,7 +18,7 @@ class WhitePawn(WhitePiece):
 
 		# Queen promotion
 		if y == 7:
-			self.promote_to_queen()
+			self.promote_to_queen(x, y)
 
 	def calculate_moves(self):
 		self.moves = board.white_pawn_moves[self.x][self.y] & ~board.all_piece_positions
@@ -33,16 +34,20 @@ class WhitePawn(WhitePiece):
 
 		board.all_white_moves = board.all_white_moves | self.moves
 
-	def promote_to_queen(self):
+	def promote_to_queen(self, x, y):
 
 		# Leave the square
 		self.leave_square(True)
 
+		# Find the highest index for the pieces dict
+		highest_key = 0
+		for key in pieces:
+
+			if int(math.log(key, 2)) > 30 and int(math.log(key, 2)) > highest_key:
+				highest_key = int(math.log(key, 2))
+
 		# Add a new white queen to the pieces array
-		pieces.append(WhiteQueen(x, y, self.white, max(pieces).index + 1, 1))
+		pieces[1<<(highest_key + 1)] = WhiteQueen(x, y, True, 1<<(highest_key + 1), 1)
 
-		# Add queen to necessary bitboards
-
-
-
-		max(pieces).calculate_moves()
+		# Add the queen to the active white pieces
+		board.active_white_pieces += 1<<(highest_key + 1)

@@ -1,3 +1,5 @@
+from globals_file import *
+
 class PositionMemento():
 	def store_current_position(self, position, board, pieces):
 		self.store_last_move_variables(board)
@@ -6,6 +8,7 @@ class PositionMemento():
 		self.store_active_pieces(board)
 
 		self.position = position
+
 
 	def restore_current_position(self, board, pieces):
 		self.restore_last_move_variables(board)
@@ -32,6 +35,7 @@ class PositionMemento():
 	def store_active_pieces(self, board):
 		self.active_white_pieces = board.active_white_pieces
 		self.active_black_pieces = board.active_black_pieces
+		self.pieces = pieces
 
 	def store_piece_positions(self, pieces, board):
 		self.all_white_positions = board.all_white_positions
@@ -66,3 +70,5 @@ class PositionMemento():
 	def restore_active_pieces(self, board):
 		board.active_white_pieces = self.active_white_pieces
 		board.active_black_pieces = self.active_black_pieces
+
+		pieces = self.pieces

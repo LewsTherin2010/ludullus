@@ -1,6 +1,7 @@
 from globals_file import *
 from black_piece_class import *
 from black_queen_class import *
+import math
 
 class BlackPawn(BlackPiece):
 	def __init__(self, x, y, white, index, piece_type):
@@ -17,9 +18,7 @@ class BlackPawn(BlackPiece):
 
 		# Queen promotion
 		if y == 0:
-			self.leave_square(True)
-			pieces.append(BlackQueen(x, y, self.white, max(pieces).index + 1, 1))
-			max(pieces).calculate_moves()
+			self.promote_to_queen(x, y)
 
 	def calculate_moves(self):
 		self.moves = board.black_pawn_moves[self.x][self.y] & ~board.all_piece_positions
@@ -34,3 +33,21 @@ class BlackPawn(BlackPiece):
 		board.unrealized_black_pawn_attacks = board.unrealized_black_pawn_attacks | (board.black_pawn_attacks[self.x][self.y] & ~board.all_piece_positions)
 
 		board.all_black_moves = board.all_black_moves | self.moves
+
+	def promote_to_queen(self, x, y):
+
+		# Leave the square
+		self.leave_square(True)
+
+		# Find the highest index for the pieces dict
+		highest_key = 0
+		for key in pieces:
+
+			if int(math.log(key, 2)) > 30 and int(math.log(key, 2)) > highest_key:
+				highest_key = int(math.log(key, 2))
+
+		# Add a new black queen to the pieces array
+		pieces[1<<(highest_key + 1)] = BlackQueen(x, y, False, 1<<(highest_key + 1), 1)
+
+		# Add the queen to the active black pieces
+		board.active_black_pieces += 1<<(highest_key + 1)

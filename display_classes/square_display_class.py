@@ -1,5 +1,5 @@
-from globals_file import *
 from board_display_class import *
+import globals_file
 
 class SquareDisplay():
 	def __init__(self, x, y, board_display):
@@ -52,30 +52,22 @@ class SquareDisplay():
 		return coords
 
 	def draw_piece(self, x, y, index):
-		if index in [1<<0, 1<<1, 1<<2, 1<<3, 1<<4, 1<<5, 1<<6, 1<<7]:
-			self.draw_pawn(x, y, True)
-		elif index in [1<<8, 1<<9, 1<<10, 1<<11, 1<<12, 1<<13, 1<<14, 1<<15]:
-			self.draw_pawn(x, y, False)
-		elif index in [1<<16, 1<<17]:
-			self.draw_rook(x, y, True)
-		elif index in [1<<18, 1<<19]:
-			self.draw_rook(x, y, False)
-		elif index in [1<<20, 1<<21]:
-			self.draw_knight(x, y, True)
-		elif index in [1<<22, 1<<23]:
-			self.draw_knight(x, y, False)
-		elif index in [1<<24, 1<<25]:
-			self.draw_bishop(x, y, True)
-		elif index in [1<<26, 1<<27]:
-			self.draw_bishop(x, y, False)
-		elif index == 1<<28:
-			self.draw_queen(x, y, True)
-		elif index == 1<<29:
-			self.draw_queen(x, y, False)
-		elif index == 1<<30:
-			self.draw_king(x, y, True)
-		elif index == 1<<31:
-			self.draw_king(x, y, False)
+
+		piece_type = globals_file.pieces[index].type
+		white = globals_file.pieces[index].white
+
+		if piece_type == 0:
+			self.draw_king(x, y, white)
+		elif piece_type == 1:
+			self.draw_queen(x, y, white)
+		elif piece_type == 2:
+			self.draw_rook(x, y, white)
+		elif piece_type == 3:
+			self.draw_bishop(x, y, white)
+		elif piece_type == 4:
+			self.draw_knight(x, y, white)
+		elif piece_type == 5:
+			self.draw_pawn(x, y, white)
 
 	def draw_pawn(self, x, y, white):
 		# Set the background color, and the piece color

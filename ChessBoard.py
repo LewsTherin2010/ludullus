@@ -1,13 +1,12 @@
 # ************************* INCLUDES ***********************
-#from tkinter import *
 import sys
 import copy
 import math
 
-sys.path.append('C:\\NaiveChess\\board_classes')
-sys.path.append('C:\\NaiveChess\\piece_classes')
-sys.path.append('C:\\NaiveChess\\memento_classes')
-sys.path.append('C:\\NaiveChess\\display_classes')
+sys.path.append('.\\board_classes')
+sys.path.append('.\\piece_classes')
+sys.path.append('.\\memento_classes')
+sys.path.append('.\\display_classes')
 
 from globals_file import *
 from logger_class import *
@@ -60,6 +59,7 @@ def handle_click (event):
 		generate_moves(position)
 
 		# Let the computer play
+		
 		"""
 		computer_start = logger.return_timestamp()
 		computer_move()

@@ -35,7 +35,10 @@ class BoardDisplay(Canvas):
 
 					# Display the piece move
 					square_display[x][y].color_square()
-					square_display[x][y].draw_piece(x, y, new_position[x][y])
+
+					if new_position[x][y] != 9999:
+						square_display[x][y].draw_piece(x, y, new_position[x][y])
+
 
 		# Update the display's board position
 		self.current_position = new_position
