@@ -12,8 +12,8 @@ class Board():
 		self.all_white_pieces = 0x533300ff # 16 bits
 		self.all_black_pieces = 0xacccff00 # 32 bits
 
-		self.black_pinners = set([1<<29, 1<<18, 1<<19, 1<<26, 1<<27]) # Queen, rooks, and bishops
 		self.white_pinners = set([1<<28, 1<<16, 1<<17, 1<<24, 1<<25]) # Queen, rooks, and bishops
+		self.black_pinners = set([1<<29, 1<<18, 1<<19, 1<<26, 1<<27]) # Queen, rooks, and bishops
 
 		self.active_white_pieces = 0x533300ff # 16 bits
 		self.active_black_pieces = 0xacccff00 # 32 bits

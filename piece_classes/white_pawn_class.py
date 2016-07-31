@@ -51,3 +51,6 @@ class WhitePawn(WhitePiece):
 
 		# Add the queen to the active white pieces
 		board.active_white_pieces += 1<<(highest_key + 1)
+
+		# Add the queen to the set of white pinners
+		board.white_pinners.add(1<<(highest_key + 1))

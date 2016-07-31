@@ -120,15 +120,15 @@ def generate_moves(position):
 	# Erase the bitboards. These are maintained by the *.piece_move functions
 	board.erase_all_bitboards()
 
-	# Set the squares' occupied statuses to the current position
-	reset_squares(position)
-
 	# Populate the piece position bitboards
 	reset_position_bitboards(position)
 	
 	# Recalculate all necessary information
-	calculate_all_moves()
+	calculate_all_moves_but_king_moves()
 	manage_pins()
+
+	calculate_king_moves()
+	
 	find_white_checks()
 	find_black_checks()
 
@@ -138,15 +138,14 @@ def reset_position_bitboards(position):
 	board.third_rank_shifted_to_fourth = board.shift_third_rank_to_fourth(board.all_piece_positions) 
 	board.sixth_rank_shifted_to_fifth = board.shift_sixth_rank_to_fifth(board.all_piece_positions)
 
-def calculate_all_moves():
-	#logger.log('calculate_all_moves')
+def calculate_all_moves_but_king_moves():
+	#logger.log('calculate_all_moves_but_king_moves')
 
 	# Recalculate the moves for all active pieces except for kings
 	active_white_pieces = board.active_white_pieces - (1<<30)
 
 	while active_white_pieces > 0:
 		active_piece = active_white_pieces & -active_white_pieces
-
 		pieces[active_piece].calculate_moves()
 		active_white_pieces -= active_piece
 
@@ -160,7 +159,10 @@ def calculate_all_moves():
 	# Do this here, rather than inside each pawn.
 	check_for_en_passant()
 
-	# Calculate moves for kings last. The black king's moves depend on the moves of the white pieces.
+# The kings' moves must be calculated after pins are set up (Although, wouldn't it make sense to just calculate the kings' moves before calculating pins?)
+def calculate_king_moves():
+	#logger.log('calculate_king_moves')
+
 	pieces[1<<30].calculate_moves()
 	pieces[1<<31].calculate_moves()
 
@@ -249,6 +251,7 @@ def calculate_white_move(depth, current_depth):
 		
 			# restore game state using Memento
 			restore_position = position_memento.restore_current_position(board, pieces)
+			reset_squares(restore_position)
 			generate_moves(restore_position)
 
 			# Update the piece_moves bitboard
@@ -322,8 +325,8 @@ def calculate_black_move(depth, current_depth):
 				best_move_y = y
 
 			# restore game state using Memento
-
 			restore_position = position_memento.restore_current_position(board, pieces)
+			reset_squares(restore_position)
 			generate_moves(restore_position)
 
 			# Update the piece_moves bitboard
@@ -406,7 +409,7 @@ def find_white_checks():
 		# If the king is in check, discover the type and location of the checking pieces
 		active_black_pieces = board.active_black_pieces
 		while active_black_pieces > 0:
-			active_pieces = active_black_pieces & -active_black_pieces
+			active_piece = active_black_pieces & -active_black_pieces
 			if pieces[active_piece].moves & king_position > 1:
 				board.checker_positions.append([pieces[active_piece].x, pieces[active_piece].y])
 				board.checker_types.append(pieces[active_piece].type)
@@ -462,7 +465,7 @@ def calculate_check_moves(active_pieces, king):
 	# If there is one piece checking the king, then friendly pieces may save the king
 	# If there is more than one piece checking the king, then only the king may save himself.
 	if number_of_checkers == 1:
-		# If the single checking piece is a pawn or a king, then the checked side may capture the checking piece
+		# If the single checking piece is a pawn or a knight, then the checked side can defend only by capturing the checking piece.
 		if board.checker_types[0] in [4, 5]:
 			defence_moves += 1 << (board.checker_positions[0][0] * 8 + board.checker_positions[0][1])
 
@@ -521,9 +524,9 @@ def defend_king (defence_moves, king):
 	#logger.log('defend_king')
 
 	if pieces[king].white:
-		defenders = board.active_white_pieces - 1<<30
+		defenders = board.active_white_pieces - (1<<30)
 	else:
-		defenders = board.active_black_pieces - 1<<31
+		defenders = board.active_black_pieces - (1<<31)
 
 	while defenders > 0:
 		defender = defenders & -defenders

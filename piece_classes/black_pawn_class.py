@@ -51,3 +51,6 @@ class BlackPawn(BlackPiece):
 
 		# Add the queen to the active black pieces
 		board.active_black_pieces += 1<<(highest_key + 1)
+
+		# Add the queen to the set of black pinners
+		board.black_pinners.add(1<<(highest_key + 1))

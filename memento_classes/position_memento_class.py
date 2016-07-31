@@ -9,7 +9,6 @@ class PositionMemento():
 
 		self.position = position
 
-
 	def restore_current_position(self, board, pieces):
 		self.restore_last_move_variables(board)
 		self.restore_castle_variables(pieces)

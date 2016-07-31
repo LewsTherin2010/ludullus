@@ -109,7 +109,7 @@ class BlackKing(BlackPiece):
 			if pieces[pinning_piece].type == 2 and king_position // 8 != pinning_piece_position // 8 and king_position % 8 != pinning_piece_position % 8:
 				return None
 
-			# This is a bishop on a rank or file
+			# This is a bishop on a rank or file (It is sufficient to rule out ranks and files for the bishop, because we already know that the bishop is on a ray [see above])
 			if pieces[pinning_piece].type == 3 and (king_position // 8 == pinning_piece_position // 8 or king_position % 8 == pinning_piece_position % 8):
 				return None
 
