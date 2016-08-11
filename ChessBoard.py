@@ -2,6 +2,7 @@
 import sys
 import copy
 import math
+import time
 
 sys.path.append('.\\board_classes')
 sys.path.append('.\\piece_classes')
@@ -59,21 +60,20 @@ def handle_click (event):
 		generate_moves(position)
 
 		# Let the computer play
+		if computer_plays == 'white' or computer_plays == 'black':
+			computer_start = logger.return_timestamp()
+			computer_move(computer_plays)
+			computer_end = logger.return_timestamp()
+
+			nps = board.nodes / ((computer_end - computer_start)/1000.0)
+			logger.log("nodes: " + str(board.nodes))
+			logger.log("nps: " + str(nps))
+			logger.log("************************************")
+			board.nodes = 0
+
+			position = board.get_position(squares)
+			generate_moves(position)
 		
-		"""
-		computer_start = logger.return_timestamp()
-		computer_move()
-		computer_end = logger.return_timestamp()
-
-		nps = board.nodes / ((computer_end - computer_start)/1000.0)
-		logger.log("nodes: " + str(board.nodes))
-		logger.log("nps: " + str(nps))
-		logger.log("************************************")
-		board.nodes = 0
-
-		position = board.get_position(squares)
-		generate_moves(position)
-		"""
 
 	# If a piece is selected and the user has made a non-move click
 	else:
@@ -182,23 +182,31 @@ def deselect_piece():
 	board_display.selected = 9999
 	board_display.highlighted_square = []
 
-def computer_move():
+def computer_move(computer_plays):
 	#logger.log('computer_move')
 
-	calculation_result = calculate_black_move(2, 2)
+	if computer_plays == 'white':
+		calculation_result = calculate_white_move(2, 2)
 
-	# Calculate_black_move will return either -1 or a dictionary containing instructions for moving. -1 means checkmate.
-	if calculation_result == -1: # Checkmate
-		print("Checkmate has occurred. White wins.")
-	else:
-		# Unpack the return dictionary	
-		best_move_piece = calculation_result.get("best_move_piece")
-		best_move_x = calculation_result.get("best_move_x")
-		best_move_y = calculation_result.get("best_move_y")
+		# Calculate_white_move will return either -1 or a dictionary containing instructions for moving. =1 means checkmate.
+		if calculation_result == -1: # Checkmate
+			print("Checkmate has occurred. Black wins.")
 
-		# Move the piece, with graphics.
-		board_display.selected = best_move_piece
-		move_selected_piece(best_move_x, best_move_y)
+	elif computer_plays == 'black':
+		calculation_result = calculate_black_move(2, 2)
+
+		# Calculate_black_move will return either -1 or a dictionary containing instructions for moving. -1 means checkmate.
+		if calculation_result == -1: # Checkmate
+			print("Checkmate has occurred. White wins.")
+
+	# Unpack the return dictionary	
+	best_move_piece = calculation_result.get("best_move_piece")
+	best_move_x = calculation_result.get("best_move_x")
+	best_move_y = calculation_result.get("best_move_y")
+
+	# Move the piece, with graphics.
+	board_display.selected = best_move_piece
+	move_selected_piece(best_move_x, best_move_y)
 
 def calculate_white_move(depth, current_depth):
 	#logger.log('calculate_white_move')
@@ -616,4 +624,23 @@ board_display.render_position(start_position, square_display)
 
 # *********************** BEGIN *************************************
 
-root.mainloop()
+# The user may initialize the program in several ways:
+# 1: python chessboard.py ---- This will start the program without a computer player
+# 2: python chessboard.py white ---- This will start the program with the computer playing white
+# 
+if len(sys.argv) == 1:
+	computer_plays = ''
+	root.mainloop()
+elif len(sys.argv) == 2:
+	if sys.argv[1] == 'white':
+		computer_plays = 'white'
+		computer_move(computer_plays)
+		root.mainloop()
+	if sys.argv[1] == 'black':
+		computer_plays = 'black'
+		root.mainloop()
+else: 
+	print('Please initialize the program with one of the following options:')
+	print('1: python chessboard.py')
+	print('2: python chessboard.py white')
+	print('3: python chessboard.py black')
