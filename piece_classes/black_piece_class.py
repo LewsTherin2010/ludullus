@@ -40,6 +40,7 @@ class BlackPiece():
 		#update occupied status of target square
 		squares[x][y].occupied_by = self.index
 
+	# This method is overwritten by the black rook class, to deal with castling.
 	def leave_square(self, captured = False):
 		#logger.log('piece.leave_square')
 		squares[self.x][self.y].occupied_by = 9999
