@@ -13,7 +13,7 @@ class WhiteRook(WhitePiece):
 		board.all_white_moves = board.all_white_moves | self.moves
 
 	# Whenever a rook leaves a square (captured or not), shut off the castle.
-	def leave_square(self, captured):
+	def leave_square(self, captured = False):
 		if self.index == 1<<17:
 			pieces[1<<30].castle_h = False
 		else:
