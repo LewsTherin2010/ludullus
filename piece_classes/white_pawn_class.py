@@ -20,6 +20,9 @@ class WhitePawn(WhitePiece):
 		if y == 7:
 			self.promote_to_queen(x, y)
 
+		# Reset the halfmove clock
+		board.halfmove_clock = 0
+
 	def calculate_moves(self):
 		self.moves = board.white_pawn_moves[self.x][self.y] & ~board.all_piece_positions
 

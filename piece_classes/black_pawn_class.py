@@ -20,6 +20,9 @@ class BlackPawn(BlackPiece):
 		if y == 0:
 			self.promote_to_queen(x, y)
 
+		# Reset the halfmove clock
+		board.halfmove_clock = 0
+
 	def calculate_moves(self):
 		self.moves = board.black_pawn_moves[self.x][self.y] & ~board.all_piece_positions
 

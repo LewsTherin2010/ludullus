@@ -9,3 +9,4 @@ Once the files have been checked out, it can be started with the following comma
 "python chessboard.py" - This command will start the the program without a computer player.
 "python chessboard.py white" - This command will start the program with the computer playing white.
 "python chessboard.py black" - This command will start the program with the computer playing black.
+"python chessboard.py fen [FEN]" - This command will start the program in a position dictated by a string in Forsythe-Edwards notation. (https://www.chessclub.com/user/help/PGN-spec, section 16.1)

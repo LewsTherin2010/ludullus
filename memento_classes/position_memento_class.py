@@ -24,6 +24,7 @@ class PositionMemento():
 		self.last_move_origin_y = board.last_move_origin_y
 		self.last_move_destination_x = board.last_move_destination_x
 		self.last_move_destination_y = board.last_move_destination_y
+		self.halfmove_clock = board.halfmove_clock
 
 	def store_castle_variables(self, pieces):
 		self.white_castle_a = pieces[1<<30].castle_a
@@ -51,6 +52,7 @@ class PositionMemento():
 		board.last_move_origin_y = self.last_move_origin_y
 		board.last_move_destination_x = self.last_move_destination_x
 		board.last_move_destination_y = self.last_move_destination_y
+		board.halfmove_clock = self.halfmove_clock
 
 	def restore_castle_variables(self, pieces):
 		pieces[1<<30].castle_a = self.white_castle_a

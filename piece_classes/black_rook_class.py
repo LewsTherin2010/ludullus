@@ -14,9 +14,9 @@ class BlackRook(BlackPiece):
 
 	# Whenever a rook leaves a square (captured or not), shut off the castle.
 	def leave_square(self, captured = False):
-		if self.index == 1<<19:
+		if self.x == 7 and self.y == 7:
 			pieces[1<<31].castle_h = False
-		else:
+		elif self.x == 0 and self.y == 7:
 			pieces[1<<31].castle_a = False
 
 		BlackPiece.leave_square(self, captured)

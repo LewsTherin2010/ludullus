@@ -14,9 +14,9 @@ class WhiteRook(WhitePiece):
 
 	# Whenever a rook leaves a square (captured or not), shut off the castle.
 	def leave_square(self, captured = False):
-		if self.index == 1<<17:
+		if self.x == 7 and self.y == 0:
 			pieces[1<<30].castle_h = False
-		else:
+		elif self.x == 0 and self.y == 0:
 			pieces[1<<30].castle_a = False
 
 		WhitePiece.leave_square(self, captured)

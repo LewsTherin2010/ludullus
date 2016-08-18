@@ -104,6 +104,10 @@ def move_selected_piece(x, y):
 	# Deselect the piece
 	board_display.selected = 9999
 
+	# Increment the fullmove counter
+	if not board.white_to_move:
+		board.fullmove_number += 1
+
 	# Change whose turn it is to move
 	board.white_to_move = not board.white_to_move
 
@@ -578,69 +582,220 @@ def check_for_en_passant():
 					board.en_passant_pieces.append(en_passant_attacker)
 					board.en_passant_victim = squares[board.last_move_destination_x][board.last_move_destination_y].occupied_by
 
-# ********************* MAIN PROGRAM *********************
 # Bind an event handler to the left click event
-board_display.bind("<Button-1>", handle_click)
-board_display.pack()
+def initialize_board_display():
+	board_display.bind("<Button-1>", handle_click)
+	board_display.pack()
 
-#create the pieces
-pieces[1] = WhitePawn(0, 1, True, 1, 5)
-pieces[1<<1] = WhitePawn(1, 1, True, 1<<1, 5)
-pieces[1<<2] = WhitePawn(2, 1, True, 1<<2, 5)
-pieces[1<<3] = WhitePawn(3, 1, True, 1<<3, 5)
-pieces[1<<4] = WhitePawn(4, 1, True, 1<<4, 5)
-pieces[1<<5] = WhitePawn(5, 1, True, 1<<5, 5)
-pieces[1<<6] = WhitePawn(6, 1, True, 1<<6, 5)
-pieces[1<<7] = WhitePawn(7, 1, True, 1<<7, 5)
-pieces[1<<8] = BlackPawn(0, 6, False, 1<<8, 5)
-pieces[1<<9] = BlackPawn(1, 6, False, 1<<9, 5)
-pieces[1<<10] = BlackPawn(2, 6, False, 1<<10, 5)
-pieces[1<<11] = BlackPawn(3, 6, False, 1<<11, 5)
-pieces[1<<12] = BlackPawn(4, 6, False, 1<<12, 5)
-pieces[1<<13] = BlackPawn(5, 6, False, 1<<13, 5)
-pieces[1<<14] = BlackPawn(6, 6, False, 1<<14, 5)
-pieces[1<<15] = BlackPawn(7, 6, False, 1<<15, 5)
-pieces[1<<16] = WhiteRook(0, 0, True, 1<<16, 2)
-pieces[1<<17] = WhiteRook(7, 0, True, 1<<17, 2)
-pieces[1<<18] = BlackRook(0, 7, False, 1<<18, 2)
-pieces[1<<19] = BlackRook(7, 7, False, 1<<19, 2)
-pieces[1<<20] = WhiteKnight(1, 0, True, 1<<20, 4)
-pieces[1<<21] = WhiteKnight(6, 0, True, 1<<21, 4)
-pieces[1<<22] = BlackKnight(1, 7, False, 1<<22, 4)
-pieces[1<<23] = BlackKnight(6, 7, False, 1<<23, 4)
-pieces[1<<24] = WhiteBishop(2, 0, True, 1<<24, 3)
-pieces[1<<25] = WhiteBishop(5, 0, True, 1<<25, 3)
-pieces[1<<26] = BlackBishop(2, 7, False, 1<<26, 3)
-pieces[1<<27] = BlackBishop(5, 7, False, 1<<27, 3)
-pieces[1<<28] = WhiteQueen(3, 0, True, 1<<28, 1)
-pieces[1<<29] = BlackQueen(3, 7, False, 1<<29, 1)
-pieces[1<<30] = WhiteKing(4, 0, True, 1<<30, 0)
-pieces[1<<31] = BlackKing(4, 7, False, 1<<31, 0)
+# Sets up the board in the initial position, and displays it.
+def initialize_with_start_position():
+	# Set up the pieces
 
-# ********************** INITIALIZE THE BOARD ***********************
-start_position = board.get_position(squares)
-generate_moves(start_position)
-board_display.render_position(start_position, square_display)
+	# Piece(rank, file, white, index, piece_type)
+	pieces[1] = WhitePawn(0, 1, True, 1, 5)
+	pieces[1<<1] = WhitePawn(1, 1, True, 1<<1, 5)
+	pieces[1<<2] = WhitePawn(2, 1, True, 1<<2, 5)
+	pieces[1<<3] = WhitePawn(3, 1, True, 1<<3, 5)
+	pieces[1<<4] = WhitePawn(4, 1, True, 1<<4, 5)
+	pieces[1<<5] = WhitePawn(5, 1, True, 1<<5, 5)
+	pieces[1<<6] = WhitePawn(6, 1, True, 1<<6, 5)
+	pieces[1<<7] = WhitePawn(7, 1, True, 1<<7, 5)
+	pieces[1<<8] = BlackPawn(0, 6, False, 1<<8, 5)
+	pieces[1<<9] = BlackPawn(1, 6, False, 1<<9, 5)
+	pieces[1<<10] = BlackPawn(2, 6, False, 1<<10, 5)
+	pieces[1<<11] = BlackPawn(3, 6, False, 1<<11, 5)
+	pieces[1<<12] = BlackPawn(4, 6, False, 1<<12, 5)
+	pieces[1<<13] = BlackPawn(5, 6, False, 1<<13, 5)
+	pieces[1<<14] = BlackPawn(6, 6, False, 1<<14, 5)
+	pieces[1<<15] = BlackPawn(7, 6, False, 1<<15, 5)
+	pieces[1<<16] = WhiteRook(0, 0, True, 1<<16, 2)
+	pieces[1<<17] = WhiteRook(7, 0, True, 1<<17, 2)
+	pieces[1<<18] = BlackRook(0, 7, False, 1<<18, 2)
+	pieces[1<<19] = BlackRook(7, 7, False, 1<<19, 2)
+	pieces[1<<20] = WhiteKnight(1, 0, True, 1<<20, 4)
+	pieces[1<<21] = WhiteKnight(6, 0, True, 1<<21, 4)
+	pieces[1<<22] = BlackKnight(1, 7, False, 1<<22, 4)
+	pieces[1<<23] = BlackKnight(6, 7, False, 1<<23, 4)
+	pieces[1<<24] = WhiteBishop(2, 0, True, 1<<24, 3)
+	pieces[1<<25] = WhiteBishop(5, 0, True, 1<<25, 3)
+	pieces[1<<26] = BlackBishop(2, 7, False, 1<<26, 3)
+	pieces[1<<27] = BlackBishop(5, 7, False, 1<<27, 3)
+	pieces[1<<28] = WhiteQueen(3, 0, True, 1<<28, 1)
+	pieces[1<<29] = BlackQueen(3, 7, False, 1<<29, 1)
+	pieces[1<<30] = WhiteKing(4, 0, True, 1<<30, 0)
+	pieces[1<<31] = BlackKing(4, 7, False, 1<<31, 0)
 
-# *********************** BEGIN *************************************
+	# Manually set up a couple bitboards
+	board.all_white_positions = 0x303030303030303
+	board.all_black_positions = 0xc0c0c0c0c0c0c0c0
+
+
+	# Get the position
+	start_position = board.get_position(squares)
+
+	# Generate the moves
+	generate_moves(start_position)
+
+	# Display the board
+	board_display.render_position(start_position, square_display)
+
+def initialize_with_fen_position(fen_string):
+
+	# Split it into separate parts
+	fen_array = fen_string.split(' ')
+
+	# 1) PIECE PLACEMENT DATA
+	# Split the position string into an array, and reverse it so that we deal with rank A first
+	position_array = list(reversed(fen_array[0].split('/')))
+
+	# Specify which indexes a piece can have in the pieces array
+	white_pawn_indexes = [1, 1<<1, 1<<2, 1<<3, 1<<4, 1<<5, 1<<6, 1<<7]
+	black_pawn_indexes = [1<<8, 1<<9, 1<<10, 1<<11, 1<<12, 1<<13, 1<<14, 1<<15]
+	white_rook_indexes = [1<<16, 1<<17]
+	black_rook_indexes = [1<<18, 1<<19]
+	white_knight_indexes = [1<<20, 1<<21]
+	black_knight_indexes = [1<<22, 1<<23]
+	white_bishop_indexes = [1<<24, 1<<25]
+	black_bishop_indexes = [1<<26, 1<<27]
+	white_queen_index = 1<<28
+	black_queen_index = 1<<29
+	white_king_index = 1<<30
+	black_king_index = 1<<31
+
+	# Loop through the array, parse each string, and initialize each piece
+	rank_counter = 0
+	for rank in position_array:
+	
+		file_counter = 0
+		for file in rank:
+			if file.isdigit():
+				file_counter += int(file)
+			else: 
+				# Piece(rank, file, white, index, piece_type)
+				if file == 'P':
+					white_pawn_index = white_pawn_indexes[0]
+					pieces[white_pawn_index] = WhitePawn(file_counter, rank_counter, True, white_pawn_index, 5)
+					white_pawn_indexes.remove(white_pawn_index)
+				elif file == 'p': # Black pawn
+					black_pawn_index = black_pawn_indexes[0]
+					pieces[black_pawn_index] = BlackPawn(file_counter, rank_counter, False, black_pawn_index, 5)
+					black_pawn_indexes.remove(black_pawn_index)
+				elif file == 'R': # White rook
+					white_rook_index = white_rook_indexes[0]
+					pieces[white_rook_index] = WhiteRook(file_counter, rank_counter, True, white_rook_index, 2)
+					white_rook_indexes.remove(white_rook_index)
+				elif file == 'r': # Black rook
+					black_rook_index = black_rook_indexes[0]
+					pieces[black_rook_index] = BlackRook(file_counter, rank_counter, False, black_rook_index, 2)
+					black_rook_indexes.remove(black_rook_index)
+				elif file == 'N': # White knight
+					white_knight_index = white_knight_indexes[0]
+					pieces[white_knight_index] = WhiteKnight(file_counter, rank_counter, True, white_knight_index, 4)
+					white_knight_indexes.remove(white_knight_index)
+				elif file == 'n': # Black knight
+					black_knight_index = black_knight_indexes[0]
+					pieces[black_knight_index] = BlackKnight(file_counter, rank_counter, False, black_knight_index, 4)
+					black_knight_indexes.remove(black_knight_index)
+				elif file == 'B': # White bishop
+					white_bishop_index = white_bishop_indexes[0]
+					pieces[white_bishop_index] = WhiteBishop(file_counter, rank_counter, True, white_bishop_index, 3)
+					white_bishop_indexes.remove(white_bishop_index)
+				elif file == 'b': # Black bishop
+					black_bishop_index = black_bishop_indexes[0]
+					pieces[black_bishop_index] = BlackBishop(file_counter, rank_counter, False, black_bishop_index, 3)
+					black_bishop_indexes.remove(black_bishop_index)
+				elif file == 'Q': # White queen
+					pieces[white_queen_index] = WhiteQueen(file_counter, rank_counter, True, white_queen_index, 1)
+				elif file == 'q': # Black queen
+					pieces[black_queen_index] = BlackQueen(file_counter, rank_counter, False, black_queen_index, 1)
+				elif file == 'K': # White king
+					pieces[white_king_index] = WhiteKing(file_counter, rank_counter, True, white_king_index, 0)
+				elif file == 'k': # Black king
+					pieces[black_king_index] = BlackKing(file_counter, rank_counter, False, black_king_index, 0)
+
+				file_counter += 1
+
+		if file_counter != 8:
+			print('Invalid piece placement data. rank ' + str(rank_counter + 1) + ' does not have the correct amount of squares in it.')
+
+		rank_counter += 1
+
+	# 2) ACTIVE COLOR
+	# 3) CASTLING AVAILABILITY
+	# 4) EN PASSANT TARGET SQUARE
+	# 5) HALFMOVE CLOCK
+	# 6) FULLMOVE NUMBER
+
+	# Manually set up a couple bitboards
+	for piece in pieces:
+		if pieces[piece].white:
+			board.all_white_positions += 1<<(8 * pieces[piece].x + pieces[piece].y)
+		else:
+			board.all_black_positions += 1<<(8 * pieces[piece].x + pieces[piece].y)
+
+	# Get the position
+	start_position = board.get_position(squares)
+
+	# Generate the moves
+	generate_moves(start_position)
+
+	# Display the board
+	board_display.render_position(start_position, square_display)
+
+# ********************* MAIN PROGRAM *********************
 
 # The user may initialize the program in several ways:
 # 1: python chessboard.py ---- This will start the program without a computer player
 # 2: python chessboard.py white ---- This will start the program with the computer playing white
-# 
+
+# No Computer Player
 if len(sys.argv) == 1:
 	computer_plays = ''
+	initialize_board_display()
+	initialize_with_start_position()
 	root.mainloop()
+
+# Computer plays black or white
 elif len(sys.argv) == 2:
+	initialize_board_display()
+	initialize_with_start_position()
+
+	# Computer plays white
 	if sys.argv[1] == 'white':
 		computer_plays = 'white'
+
+		# Play the move
+		computer_start = logger.return_timestamp()
 		computer_move(computer_plays)
+		computer_end = logger.return_timestamp()
+
+		# Record statistics
+		nps = board.nodes / ((computer_end - computer_start)/1000.0)
+		logger.log("nodes: " + str(board.nodes))
+		logger.log("nps: " + str(nps))
+		logger.log("************************************")
+		board.nodes = 0
+
 		root.mainloop()
+	
+	# Computer plays black
 	if sys.argv[1] == 'black':
 		computer_plays = 'black'
 		root.mainloop()
+
+# Load from Forsythe-Edwards notation
+# Specification found here: https://www.chessclub.com/user/help/PGN-spec (section 16.1)
+elif len(sys.argv) == 3:
+	if sys.argv[1] == 'fen':
+		computer_plays = ''
+		initialize_board_display()
+		initialize_with_fen_position(sys.argv[2])
+		root.mainloop()
+
+
 else: 
 	print('Please initialize the program with one of the following options:')
 	print('1: python chessboard.py')
 	print('2: python chessboard.py white')
 	print('3: python chessboard.py black')
+	print('4: python chessboard.py fen [FEN]')

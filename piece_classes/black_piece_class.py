@@ -12,6 +12,10 @@ class BlackPiece():
 		squares[x][y].occupied_by = self.index
 
 	def move_piece(self, x, y):
+		# If it's not a pawn, increment the halfmove clock
+		if self.type != 5:
+			board.halfmove_clock += 1
+
 		board.all_black_positions += 1 << squares[x][y].bitwise_position
 
 		# Leave the current square
@@ -48,6 +52,7 @@ class BlackPiece():
 		board.all_black_positions -= 1 << squares[self.x][self.y].bitwise_position
 		if captured:
 			board.active_black_pieces -= self.index
+			board.halfmove_clock = 0
 
 	# This is an interface method that is overwritten by every type of piece
 	def calculate_moves(self):

@@ -18,6 +18,9 @@ class Board():
 		self.active_white_pieces = 0x533300ff # 16 bits
 		self.active_black_pieces = 0xacccff00 # 32 bits
 
+		self.extra_white_indexes = [1<<32, 1<<33, 1<<34, 1<<35, 1<<36, 1<<37, 1<<38, 1<<39]
+		self.extra_black_indexes = [1<<40, 1<<41, 1<<42, 1<<43, 1<<44, 1<<45, 1<<46, 1<<47]
+
 		# En passant variables
 		self.en_passant = False
 		self.en_passant_pieces = []
@@ -36,6 +39,11 @@ class Board():
 		self.checker_types = []
 		self.checker_positions = []
 
+		# FEN variables - These are to enable load from Forsythe-Edwards notation
+		self.en_passant_target_square = ''
+		self.halfmove_clock = 0
+		self.fullmove_number = 1
+
 		###### BOARD STATE BITBOARDS ######
 		self.all_white_moves = 0
 		self.all_black_moves = 0
@@ -43,8 +51,8 @@ class Board():
 		self.all_defended_white_pieces = 0
 		self.all_defended_black_pieces = 0
 
-		self.all_white_positions = 0x303030303030303
-		self.all_black_positions = 0xc0c0c0c0c0c0c0c0
+		self.all_white_positions = 0
+		self.all_black_positions = 0
 
 		self.all_piece_positions = 0
 
@@ -56,6 +64,7 @@ class Board():
 
 		self.third_rank_shifted_to_fourth = 0 # For use in calculating white pawns' first moves
 		self.sixth_rank_shifted_to_fifth = 0 # For use in calculating black pawns' first moves
+
 
 		###### REFERENCE BITBOARDS ######
 		# The file_bitboards array should be accessed with the convention file_bitboards[y][occupancy]
