@@ -717,14 +717,101 @@ def initialize_with_fen_position(fen_string):
 
 		if file_counter != 8:
 			print('Invalid piece placement data. rank ' + str(rank_counter + 1) + ' does not have the correct amount of squares in it.')
+			exit()
 
 		rank_counter += 1
 
 	# 2) ACTIVE COLOR
+	if fen_array[1] == 'w':
+		board.white_to_move = True
+	elif fen_array[1] == 'b':
+		board.white_to_move = False
+	else:
+		print('The second field of the FEN string is invalid. It must be a "w" or a "b".')
+		exit()
+	
 	# 3) CASTLING AVAILABILITY
+	for character in fen_array[2]:
+		if character not in ['-', 'K', 'Q', 'k', 'q']:
+			print('The castling availability field is invalid. It must contain either a combination of the characters "K", "Q", "k", and "q", or the character "-".')
+			exit()
+
+	if 'K' in fen_array[2]:
+		pieces[1<<30].castle_h = True
+	else:
+		pieces[1<<30].castle_h = False
+
+	if 'Q' in fen_array[2]:
+		pieces[1<<30].castle_a = True
+	else:
+		pieces[1<<30].castle_a = False
+
+	if 'k' in fen_array[2]:
+		pieces[1<<31].castle_h = True
+	else:
+		pieces[1<<31].castle_h = False
+
+	if 'q' in fen_array[2]:
+		pieces[1<<31].castle_a = True
+	else:
+		pieces[1<<31].castle_a = False
+
 	# 4) EN PASSANT TARGET SQUARE
+	# Ludullus stores 5 last-move variables in the board class, and infers from those whether or not en passant is possible. 
+	# If it is possible, three en passant variables are stored in the board class, and the moves of the piece(s) that may perform the en passant are updated.
+	# So, this function will only populate the initial five last-move variables, and allow downstream logic to do the rest.
+
+	if fen_array[3] not in ['a3', 'b3', 'c3', 'd3', 'e3', 'f3', 'g3', 'h3', 'a6', 'b6', 'c6', 'd6', 'e6', 'f6', 'g6', 'h6', '-']:
+		print('The en passant target square field is invalid. It must be either a square on the 3rd or the 6th rank, or a hyphen.')
+		exit()
+
+	if fen_array[3] != '-':
+		# Find the rank
+		if '3' in fen_array[3]:
+			target_square_rank = 2 # Subtracting 1, because the coordinates start at 0.
+		elif '6' in fen_array[3]:
+			target_square_rank = 5 # etc.
+
+		# Find the file
+		if 'a' in fen_array[3]:
+			target_square_file = 0
+		elif 'b' in fen_array[3]:
+			target_square_file = 1
+		elif 'c' in fen_array[3]:
+			target_square_file = 2
+		elif 'd' in fen_array[3]:
+			target_square_file = 3
+		elif 'e' in fen_array[3]:
+			target_square_file = 4
+		elif 'f' in fen_array[3]:
+			target_square_file = 5
+		elif 'g' in fen_array[3]:
+			target_square_file = 6
+		elif 'h' in fen_array[3]:
+			target_square_file = 7
+
+		board.last_move_piece_type = 5
+		board.last_move_origin_x = target_square_file
+		board.last_move_destination_x = target_square_file
+
+		if target_square_rank == 2: # white
+			board.last_move_origin_y = 1
+			board.last_move_destination_y = 3
+		else: # black
+			board.last_move_origin_y = 6
+			board.last_move_destination_y = 4
+
 	# 5) HALFMOVE CLOCK
+	if fen_array[4].isdigit():
+		board.halfmove_clock = int(fen_array[4])
+	else:
+		print('The halfmove clock field must be an integer.')
+
 	# 6) FULLMOVE NUMBER
+	if fen_array[5].isdigit():
+		board.fullmove_number = int(fen_array[5])
+	else:
+		print('The fullmove number field must be an integer.')
 
 	# Manually set up a couple bitboards
 	for piece in pieces:
@@ -783,7 +870,7 @@ elif len(sys.argv) == 2:
 		computer_plays = 'black'
 		root.mainloop()
 
-# Load from Forsythe-Edwards notation
+# Load from Forsyth-Edwards notation
 # Specification found here: https://www.chessclub.com/user/help/PGN-spec (section 16.1)
 elif len(sys.argv) == 3:
 	if sys.argv[1] == 'fen':

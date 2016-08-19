@@ -39,7 +39,7 @@ class Board():
 		self.checker_types = []
 		self.checker_positions = []
 
-		# FEN variables - These are to enable load from Forsythe-Edwards notation
+		# FEN variables - These are to enable load from Forsyth-Edwards notation
 		self.en_passant_target_square = ''
 		self.halfmove_clock = 0
 		self.fullmove_number = 1
