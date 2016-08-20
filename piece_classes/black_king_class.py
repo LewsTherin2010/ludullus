@@ -123,7 +123,8 @@ class BlackKing(BlackPiece):
 				# Otherwise, there can only be friendly pieces between.
 				# If there is more than one friendly piece in the intervening squares, there is no pin.
 				potential_pinned = friendly_pieces & intervening_squares
-				if potential_pinned != 0 and math.log(potential_pinned, 2) % 1 != 0:
+
+				if potential_pinned != 0 and math.log(potential_pinned, 2) % 1 == 0:
 
 					pinned_piece = squares[int(math.log(potential_pinned, 2)) // 8][int(math.log(potential_pinned, 2)) % 8].occupied_by
 					return dict({"pinned_piece": pinned_piece, "pinning_piece": pinning_piece})
