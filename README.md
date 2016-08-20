@@ -12,3 +12,5 @@ Once the files have been checked out, it can be started with the following comma
 "python chessboard.py black" - This command will start the program with the computer playing black.
 
 "python chessboard.py fen [FEN]" - This command will start the program in a position dictated by a string in Forsyth-Edwards notation. (https://www.chessclub.com/user/help/PGN-spec, section 16.1)
+
+"python chessboard.py perft [FEN] [DEPTH] - This command with start the program in a position dictated by a FEN string, and calculate perft to a specific depth"

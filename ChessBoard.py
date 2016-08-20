@@ -190,14 +190,14 @@ def computer_move(computer_plays):
 	#logger.log('computer_move')
 
 	if computer_plays == 'white':
-		calculation_result = calculate_white_move(2, 2)
+		calculation_result = calculate_white_move(3, 3)
 
 		# Calculate_white_move will return either -1 or a dictionary containing instructions for moving. =1 means checkmate.
 		if calculation_result == -1: # Checkmate
 			print("Checkmate has occurred. Black wins.")
 
 	elif computer_plays == 'black':
-		calculation_result = calculate_black_move(2, 2)
+		calculation_result = calculate_black_move(3, 3)
 
 		# Calculate_black_move will return either -1 or a dictionary containing instructions for moving. -1 means checkmate.
 		if calculation_result == -1: # Checkmate
@@ -361,6 +361,8 @@ def calculate_black_move(depth, current_depth):
 			return -1
 		else: 
 			return {"best_move_piece": best_move_piece, "best_move_x": best_move_x, "best_move_y": best_move_y}
+
+
 
 def manage_pins():
 	#logger.log('manage_pins')
@@ -829,6 +831,106 @@ def initialize_with_fen_position(fen_string):
 	# Display the board
 	board_display.render_position(start_position, square_display)
 
+def calculate_white_perft(depth, current_depth):
+	# store the current position, as well as the last move variables (for en passant detection)
+
+	if current_depth == 0:
+		board.nodes += 1
+	
+	else:
+
+		position = board.get_position(squares)
+
+		position_memento = PositionMemento()
+		position_memento.store_current_position(position, board, pieces)
+
+		generate_moves(position)
+
+		# Loop through all pieces' moves
+		current_active_white_pieces = board.active_white_pieces
+
+		while current_active_white_pieces > 0:
+			piece = current_active_white_pieces & -current_active_white_pieces
+
+			piece_moves = pieces[piece].moves
+
+			while piece_moves > 0:
+
+				# Because of how negative numbers are stored, the bitwise and of a number and its negative will equal the smallest bit in the number.
+				move = piece_moves & -piece_moves
+				x = int(round(math.log(move, 2) // 8, 0))
+				y = int(round(math.log(move, 2) % 8, 0))
+
+				# Make move and return value of board (without graphics)
+				pieces[piece].move_piece(x, y)
+
+				# Recurse. If this calculation is the leaf of the search tree, find the position of the board.
+				# Otherwise, call the move function of the opposing side. 
+				position_value = calculate_black_perft(depth, current_depth - 1)
+			
+				# restore game state using Memento
+				restore_position = position_memento.restore_current_position(board, pieces)
+				reset_squares(restore_position)
+				generate_moves(restore_position)
+
+				# Update the piece_moves bitboard
+				piece_moves -= move
+
+			current_active_white_pieces -= piece
+
+	if depth == current_depth:
+		return board.nodes
+
+def calculate_black_perft(depth, current_depth):
+	#logger.log('calculate_black_move')
+
+	if current_depth == 0:
+		board.nodes += 1
+
+	else:
+		# store the current position
+		position = board.get_position(squares)
+
+		position_memento = PositionMemento()
+		position_memento.store_current_position(position, board, pieces)
+
+		generate_moves(position)
+
+		# Loop through all pieces' moves
+		current_active_black_pieces = board.active_black_pieces
+
+		while current_active_black_pieces > 0:
+			piece = current_active_black_pieces & -current_active_black_pieces
+
+			piece_moves = pieces[piece].moves
+
+			while piece_moves > 0:
+
+				# Because of how negative numbers are stored, the bitwise and of a number and its negative will equal the smallest bit in the number.
+				move = piece_moves & -piece_moves
+				x = int(round(math.log(move, 2) // 8, 0))
+				y = int(round(math.log(move, 2) % 8, 0))
+
+				# Make move and return value of board (without graphics)
+				pieces[piece].move_piece(x, y)
+
+				# Recurse. If this calculation is the leaf of the search tree, find the position of the board.
+				# Otherwise, call the move function of the opposing side. 
+				position_value = calculate_white_perft(depth, current_depth - 1)
+
+				# restore game state using Memento
+				restore_position = position_memento.restore_current_position(board, pieces)
+				reset_squares(restore_position)
+				generate_moves(restore_position)
+
+				# Update the piece_moves bitboard
+				piece_moves -= move
+
+			current_active_black_pieces -= piece
+
+	if depth == current_depth:
+		return board.nodes
+
 # ********************* MAIN PROGRAM *********************
 
 # The user may initialize the program in several ways:
@@ -878,7 +980,24 @@ elif len(sys.argv) == 3:
 		initialize_board_display()
 		initialize_with_fen_position(sys.argv[2])
 		root.mainloop()
+# Calculate perft to a specific depth from a position specified in FEN
+elif len(sys.argv) == 4:
+	if sys.argv[1] == 'perft':
+		
+		if not sys.argv[3].isdigit():
+			print ('The depth parameter must be a digit.')
+		else:
+			depth = int(sys.argv[3])
 
+		computer_plays = ''
+		initialize_with_fen_position(sys.argv[2])
+
+		if board.white_to_move:
+			nodes = calculate_white_perft(depth, depth)
+		else:
+			nodes = calculate_black_perft(depth, depth)
+
+	print('Nodes:', nodes)
 
 else: 
 	print('Please initialize the program with one of the following options:')
@@ -886,3 +1005,4 @@ else:
 	print('2: python chessboard.py white')
 	print('3: python chessboard.py black')
 	print('4: python chessboard.py fen [FEN]')
+	print('5: python chessboard.py perft [FEN] [DEPTH]')
