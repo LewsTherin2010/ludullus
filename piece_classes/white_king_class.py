@@ -74,7 +74,7 @@ class WhiteKing(WhitePiece):
 	# but it should be rather efficient, given the precalculated bitboards.
 	def find_pins(self):
 		pinned_pieces = []
-		king_position = 1 << (self.x * 8 + self.y)
+		king_position = (self.x * 8 + self.y)
 
 		for pinner_piece in board.black_pinners:
 			if pinner_piece & board.active_black_pieces > 0:
@@ -93,10 +93,10 @@ class WhiteKing(WhitePiece):
 	# bitboard is a key.
 	def find_pin_by_piece(self, king_position, pinning_piece, friendly_pieces, enemy_pieces):
 		# Get a bitboared representation of the potential pinning piece's position
-		pinning_piece_position = 1 << (pieces[pinning_piece].x * 8 + pieces[pinning_piece].y)
+		pinning_piece_position = (pieces[pinning_piece].x * 8 + pieces[pinning_piece].y)
 
 		# Check to see if the the king and the pinning piece are on an array
-		if king_position + pinning_piece_position in board.intervening_squares_bitboards:
+		if (1 << king_position) + (1 << pinning_piece_position) in board.intervening_squares_bitboards:
 
 			# Make sure that the correct piece type is being used with the correct ray type (queen & bishops => diagonals, queens & rooks => ranks & files)
 			# This is a rook on a diagonal
@@ -108,7 +108,7 @@ class WhiteKing(WhitePiece):
 				return None
 
 			# If so, get the squares between them
-			intervening_squares = board.intervening_squares_bitboards[king_position + pinning_piece_position]
+			intervening_squares = board.intervening_squares_bitboards[(1 << king_position) + (1 << pinning_piece_position)]
 
 			# If there are any enemy pieces between the (friendly) king and the potential pinning piece,
 			# then there is no pin.
