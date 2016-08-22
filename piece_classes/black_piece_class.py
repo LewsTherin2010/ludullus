@@ -2,8 +2,6 @@ from globals_file import *
 
 class BlackPiece():
 	def __init__(self, x, y, white, index, piece_type):
-		self.x = x
-		self.y = y
 		self.eightx_y = 8*x+y
 		self.white = white
 		self.moves = 0
@@ -12,44 +10,41 @@ class BlackPiece():
 
 		squares[self.eightx_y].occupied_by = self.index
 
-	def move_piece(self, x, y):
+	def move_piece(self, eightx_y):
 		# If it's not a pawn, increment the halfmove clock
 		if self.type != 5:
 			board.halfmove_clock += 1
 
-		board.all_black_positions += 1 << 8*x+y
+		board.all_black_positions += 1 << eightx_y
 
 		# Leave the current square
 		self.leave_square()
 
 		# Kill the opposing piece, if any
-		if squares[8*x+y].occupied_by != 0:
-			pieces[squares[8*x+y].occupied_by].leave_square(True)
+		if squares[eightx_y].occupied_by != 0:
+			pieces[squares[eightx_y].occupied_by].leave_square(True)
 
 		# Reset en passant variables
-		board.en_passant = False
 		board.en_passant_pieces = []
 		board.en_passant_victim = 0
 
 		# Reset last move variables
 		board.last_move_piece_type = self.type
 		board.last_move_origin_eightx_y = self.eightx_y
-		board.last_move_destination_eightx_y = 8*x+y
+		board.last_move_destination_eightx_y = eightx_y
 
 		#update current piece coordinates
-		self.x = x
-		self.y = y
-		self.eightx_y = 8*x+y
+		self.eightx_y = eightx_y
 
 		#update occupied status of target square
-		squares[8*x+y].occupied_by = self.index
+		squares[eightx_y].occupied_by = self.index
 
 	# This method is overwritten by the black rook class, to deal with castling.
 	def leave_square(self, captured = False):
 		#logger.log('piece.leave_square')
 		squares[self.eightx_y].occupied_by = 0
 
-		board.all_black_positions -= 1 << squares[self.eightx_y].bitwise_position
+		board.all_black_positions -= 1 << self.eightx_y
 		if captured:
 			board.active_black_pieces -= self.index
 			board.halfmove_clock = 0
@@ -62,17 +57,15 @@ class BlackPiece():
 		board.all_black_moves = board.all_black_moves | self.moves
 
 	def calculate_file_moves(self):
-		occupancy = (board.all_piece_positions >> (8 * self.x)) & 255
-
-		potential_moves = board.file_bitboards[self.y][occupancy] << 8 * self.x
+		occupancy = (board.all_piece_positions >> (self.eightx_y - (self.eightx_y % 8))) & 255
+		potential_moves = board.file_bitboards[self.eightx_y % 8][occupancy] << (self.eightx_y - (self.eightx_y % 8))
 
 		self.moves += potential_moves & ~board.all_black_positions
-
 		board.all_defended_black_pieces = board.all_defended_black_pieces | (potential_moves & board.all_black_positions)
 
 	def calculate_rank_moves(self):
-		occupancy = (board.all_piece_positions >> self.y) & 0x101010101010101
-		potential_moves = board.rank_bitboards[occupancy][self.x] << self.y
+		occupancy = (board.all_piece_positions >> (self.eightx_y % 8)) & 0x101010101010101
+		potential_moves = board.rank_bitboards[occupancy][self.eightx_y // 8] << (self.eightx_y % 8)
 
 		self.moves += potential_moves & ~board.all_black_positions
 		board.all_defended_black_pieces = board.all_defended_black_pieces | (potential_moves & board.all_black_positions)

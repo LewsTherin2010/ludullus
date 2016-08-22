@@ -18,12 +18,11 @@ class PositionMemento():
 
 		self.piece_positions = {}
 		for piece in board.piece_indexes:
-			self.piece_positions[piece] = [pieces[piece].x, pieces[piece].y, pieces[piece].eightx_y]
+			self.piece_positions[piece] = pieces[piece].eightx_y
 
 		# Store active pieces
 		self.active_white_pieces = board.active_white_pieces
 		self.active_black_pieces = board.active_black_pieces
-		self.pieces = pieces
 
 		# Store position
 		self.position = position
@@ -44,15 +43,11 @@ class PositionMemento():
 		board.all_black_positions = self.all_black_positions
 
 		for piece in board.piece_indexes:
-			pieces[piece].x = self.piece_positions[piece][0]
-			pieces[piece].y = self.piece_positions[piece][1]
-			pieces[piece].eightx_y = self.piece_positions[piece][2]
+			pieces[piece].eightx_y = self.piece_positions[piece]
 
 		# Restore active pieces
 		board.active_white_pieces = self.active_white_pieces
 		board.active_black_pieces = self.active_black_pieces
-
-		pieces = self.pieces
 
 		# Return the position
 		return self.position

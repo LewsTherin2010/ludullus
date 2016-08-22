@@ -7,17 +7,17 @@ class BlackPawn(BlackPiece):
 	def __init__(self, x, y, white, index, piece_type):
 		BlackPiece.__init__(self, x, y, white, index, piece_type)
 
-	def move_piece(self, x, y):
+	def move_piece(self, eightx_y):
 		#logger.log('pawn.move_piece')
 		# ******* EN PASSANT ******* #
 		# check to see if this pawn is performing en passant, and if so, remove the en passant victim from the board.
-		if board.en_passant and self.index in board.en_passant_pieces and pieces[board.en_passant_victim].x == x:
+		if self.index in board.en_passant_pieces and pieces[board.en_passant_victim].eightx_y // 8 == eightx_y // 8:
 			pieces[board.en_passant_victim].leave_square(True)
 
-		BlackPiece.move_piece(self, x, y)
+		BlackPiece.move_piece(self, eightx_y)
 
 		# Queen promotion
-		if y == 0:
+		if eightx_y % 8 == 0:
 			self.promote_to_queen(x, y)
 
 		# Reset the halfmove clock
@@ -27,7 +27,7 @@ class BlackPawn(BlackPiece):
 		self.moves = board.black_pawn_moves[self.eightx_y] & ~board.all_piece_positions
 
 		# The precalculated "sixth_rank_shifted_to_fifth" is used to prevent a pawn from hopping over a piece on its first move.
-		if self.y == 6:
+		if self.eightx_y % 8 == 6:
 			self.moves = self.moves & ~board.sixth_rank_shifted_to_fifth
 
 		# Deal with pawn attacks

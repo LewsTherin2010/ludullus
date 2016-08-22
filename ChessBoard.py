@@ -53,8 +53,8 @@ def handle_click (event):
 			select_piece(x, y, eightx_y)
 
 	# If a piece is selected and the user has made a legal move
-	elif pieces[board_display.selected].moves & (1 << (x * 8 + y)) > 0:
-		move_selected_piece(x, y)
+	elif pieces[board_display.selected].moves & (1 << eightx_y) > 0:
+		move_selected_piece(eightx_y)
 
 		position = board.get_position(squares)
 
@@ -96,11 +96,11 @@ def select_piece(x, y, eightx_y):
 	board_display.selected = squares[eightx_y].occupied_by
 	board_display.highlighted_square = [x, y]
 
-def move_selected_piece(x, y):
+def move_selected_piece(eightx_y):
 	#logger.log('move_selected_piece')
 
 	# Move the piece
-	pieces[board_display.selected].move_piece(x, y)
+	pieces[board_display.selected].move_piece(eightx_y)
 
 	# Deselect the piece
 	board_display.selected = 0
@@ -117,7 +117,7 @@ def move_selected_piece(x, y):
 	board_display.render_position(new_position, square_display)
 
 def generate_moves(position):
-	#logger.log('generate_moves')
+	logger.log('generate_moves-start')
 
 	# Reset board variables
 	board.checker_types = []
@@ -208,12 +208,11 @@ def computer_move(computer_plays):
 
 	# Unpack the return dictionary	
 	best_move_piece = calculation_result.get("best_move_piece")
-	best_move_x = calculation_result.get("best_move_x")
-	best_move_y = calculation_result.get("best_move_y")
+	best_move = calculation_result.get("best_move")
 
 	# Move the piece, with graphics.
 	board_display.selected = best_move_piece
-	move_selected_piece(best_move_x, best_move_y)
+	move_selected_piece(best_move)
 
 def calculate_white_move(depth, current_depth):
 	#logger.log('calculate_white_move')
@@ -242,11 +241,10 @@ def calculate_white_move(depth, current_depth):
 
 			# Because of how negative numbers are stored, the bitwise and of a number and its negative will equal the smallest bit in the number.
 			move = piece_moves & -piece_moves
-			x = int(round(math.log(move, 2) // 8, 0))
-			y = int(round(math.log(move, 2) % 8, 0))
+			eightx_y = int(math.log(move, 2))
 
 			# Make move and return value of board (without graphics)
-			pieces[piece].move_piece(x, y)
+			pieces[piece].move_piece(eightx_y)
 
 			# Recurse. If this calculation is the leaf of the search tree, find the position of the board.
 			# Otherwise, call the move function of the opposing side. 
@@ -261,8 +259,7 @@ def calculate_white_move(depth, current_depth):
 			if position_value > best_position_value:
 				best_position_value = position_value
 				best_move_piece = piece
-				best_move_x = x
-				best_move_y = y
+				best_move_eightx_y = eightx_y
 		
 			# restore game state using Memento
 			restore_position = position_memento.restore_current_position(board, pieces)
@@ -287,7 +284,7 @@ def calculate_white_move(depth, current_depth):
 		if best_move_piece == -1: # Checkmate has occurred.
 			return -1
 		else: 
-			return {"best_move_piece": best_move_piece, "best_move_x": best_move_x, "best_move_y": best_move_y}
+			return {"best_move_piece": best_move_piece, "best_move": best_move_eightx_y}
 
 def calculate_black_move(depth, current_depth):
 	#logger.log('calculate_black_move')
@@ -317,11 +314,10 @@ def calculate_black_move(depth, current_depth):
 
 			# Because of how negative numbers are stored, the bitwise and of a number and its negative will equal the smallest bit in the number.
 			move = piece_moves & -piece_moves
-			x = int(round(math.log(move, 2) // 8, 0))
-			y = int(round(math.log(move, 2) % 8, 0))
+			eightx_y = int(math.log(move, 2))
 
 			# Make move and return value of board (without graphics)
-			pieces[piece].move_piece(x, y)
+			pieces[piece].move_piece(eightx_y)
 
 			# Recurse. If this calculation is the leaf of the search tree, find the position of the board.
 			# Otherwise, call the move function of the opposing side. 
@@ -336,8 +332,7 @@ def calculate_black_move(depth, current_depth):
 			if position_value < best_position_value:
 				best_position_value = position_value
 				best_move_piece = piece
-				best_move_x = x
-				best_move_y = y
+				best_move_eightx_y = eightx_y
 
 			# restore game state using Memento
 			restore_position = position_memento.restore_current_position(board, pieces)
@@ -363,7 +358,7 @@ def calculate_black_move(depth, current_depth):
 		if best_move_piece == -1: # Checkmate has occurred.
 			return -1
 		else: 
-			return {"best_move_piece": best_move_piece, "best_move_x": best_move_x, "best_move_y": best_move_y}
+			return {"best_move_piece": best_move_piece, "best_move": best_move_eightx_y}
 
 def manage_pins():
 	#logger.log('manage_pins')
@@ -412,7 +407,7 @@ def find_white_checks():
 		while active_black_pieces > 0:
 			active_piece = active_black_pieces & -active_black_pieces
 			if pieces[active_piece].moves & king_position > 1:
-				board.checker_positions.append([pieces[active_piece].x, pieces[active_piece].y])
+				board.checker_positions.append(pieces[active_piece].eightx_y)
 				board.checker_types.append(pieces[active_piece].type)
 
 			active_black_pieces -= active_piece
@@ -439,7 +434,7 @@ def find_black_checks():
 		while active_white_pieces > 0:
 			active_piece = active_white_pieces & -active_white_pieces
 			if pieces[active_piece].moves & king_position > 1:
-				board.checker_positions.append([pieces[active_piece].x, pieces[active_piece].y])
+				board.checker_positions.append(pieces[active_piece].eightx_y)
 				board.checker_types.append(pieces[active_piece].type)
 
 			active_white_pieces -= active_piece
@@ -468,12 +463,12 @@ def calculate_check_moves(active_pieces, king):
 	if number_of_checkers == 1:
 		# If the single checking piece is a pawn or a knight, then the checked side can defend only by capturing the checking piece.
 		if board.checker_types[0] in [4, 5]:
-			defence_moves += 1 << (board.checker_positions[0][0] * 8 + board.checker_positions[0][1])
+			defence_moves += 1 << (board.checker_positions[0])
 
 		# If the single checking piece is a bishop, rook, or queen, then the checked side may either capture the checking piece
 		# or interpose a piece between the checking piece and the king.
 		else:
-			checker_position = 1 << (board.checker_positions[0][0] * 8 + board.checker_positions[0][1])
+			checker_position = 1 << (board.checker_positions[0])
 			king_position = 1 << (pieces[king].eightx_y)
 			intervening_squares = 0
 
@@ -489,23 +484,22 @@ def calculate_check_moves(active_pieces, king):
 	# If the king is being checked by a ray piece, there is an additional condition added to his moves:
 	# He may not move away from a checking ray piece on the ray that he is being checked with.
 	moves_to_remove = 0
-	king_x = pieces[king].x
-	king_y = pieces[king].y
 	king_eightx_y = pieces[king].eightx_y
 
 	# Loop, for there may be more than 1 checker.
 	for i in range(number_of_checkers):
 		# The checker_types array doesn't tie the position to the checker type.
-		checker_x = board.checker_positions[i][0]
-		checker_y = board.checker_positions[i][1]
-		checker_index = squares[8*checker_x+checker_y].occupied_by
+		checker_eightx_y = board.checker_positions[i]
+		checker_index = squares[board.checker_positions[i]].occupied_by
 		checker_type = pieces[checker_index].type
 
 		if checker_type in [1, 2, 3]:
-			vector_x = get_vector(checker_x, king_x)
-			vector_y = get_vector(checker_y, king_y)
+			vector = get_vector(board.checker_positions[i], pieces[king].eightx_y)
 
-			potential_move_to_remove = 1 << ((king_x + vector_x) * 8 + (king_y + vector_y))
+			if pieces[king].eightx_y + vector >= 0 and pieces[king].eightx_y + vector <= 64:
+				potential_move_to_remove = 1 << (pieces[king].eightx_y + vector)
+			else:
+				potential_move_too_remove = 0
 
 			if board.king_move_bitboards[king_eightx_y] & potential_move_to_remove > 0:
 				moves_to_remove += potential_move_to_remove
@@ -513,14 +507,26 @@ def calculate_check_moves(active_pieces, king):
 	pieces[king].moves = pieces[king].moves - (pieces[king].moves & moves_to_remove)
 
 def get_vector(origin, destination):
-	#logger.log('get_vector')
-
-	if origin - destination > 0:
-		return -1
-	elif origin - destination == 0:
-		return 0
-	elif origin - destination < 0:
-		return 1
+	if origin // 8 == destination // 8:	# Same file
+		if origin > destination:
+			return -1
+		else: 
+			return 1
+	elif origin % 8 == destination % 8: # Same rank
+		if origin > destination:
+			return -8
+		else:
+			return 8
+	elif (origin - destination) % 9 == 0: # A1H8 diagonals
+		if origin > destination:
+			return -9
+		else:
+			return 9
+	elif (origin - destination) % 7 == 0: #A8H1 diagonals
+		if origin > destination:
+			return -7
+		else:
+			return 7
 
 def defend_king (defence_moves, king):
 	#logger.log('defend_king')
@@ -547,28 +553,24 @@ def check_for_en_passant():
 				if board.last_move_origin_eightx_y > 7 and squares[board.last_move_destination_eightx_y - 8].occupied_by & 0b11111111 > 0:
 					en_passant_attacker = squares[board.last_move_destination_eightx_y - 8].occupied_by
 					pieces[en_passant_attacker].moves += 1 << (board.last_move_destination_eightx_y + 1)
-					board.en_passant = True
 					board.en_passant_pieces.append(en_passant_attacker)
 					board.en_passant_victim = squares[board.last_move_destination_eightx_y].occupied_by
 
 				if board.last_move_origin_eightx_y < 56 and squares[board.last_move_destination_eightx_y + 8].occupied_by & 0b11111111 > 0:
 					en_passant_attacker = squares[board.last_move_destination_eightx_y + 8].occupied_by
 					pieces[en_passant_attacker].moves += 1 << (board.last_move_destination_eightx_y + 1)
-					board.en_passant = True
 					board.en_passant_pieces.append(en_passant_attacker)
 					board.en_passant_victim = squares[board.last_move_destination_eightx_y].occupied_by
 			else:
 				if board.last_move_origin_eightx_y > 7 and squares[board.last_move_destination_eightx_y - 8].occupied_by & 0b1111111100000000 > 0:
 					en_passant_attacker = squares[board.last_move_destination_eightx_y - 8].occupied_by
 					pieces[en_passant_attacker].moves += 1 << (board.last_move_destination_eightx_y - 1)
-					board.en_passant = True
 					board.en_passant_pieces.append(en_passant_attacker)
 					board.en_passant_victim = squares[board.last_move_destination_eightx_y].occupied_by
 
 				if board.last_move_origin_eightx_y < 56 and squares[board.last_move_destination_eightx_y + 8].occupied_by & 0b1111111100000000 > 0:
 					en_passant_attacker = squares[board.last_move_destination_eightx_y + 8].occupied_by
 					pieces[en_passant_attacker].moves += 1 << (board.last_move_destination_eightx_y - 1)
-					board.en_passant = True
 					board.en_passant_pieces.append(en_passant_attacker)
 					board.en_passant_victim = squares[board.last_move_destination_eightx_y].occupied_by
 
@@ -843,11 +845,10 @@ def calculate_white_perft(depth, current_depth):
 
 				# Because of how negative numbers are stored, the bitwise and of a number and its negative will equal the smallest bit in the number.
 				move = piece_moves & -piece_moves
-				x = int(round(math.log(move, 2) // 8, 0))
-				y = int(round(math.log(move, 2) % 8, 0))
+				eightx_y = int(math.log(move, 2))
 
 				# Make move and return value of board (without graphics)
-				pieces[piece].move_piece(x, y)
+				pieces[piece].move_piece(eightx_y)
 
 				# Recurse. If this calculation is the leaf of the search tree, find the position of the board.
 				# Otherwise, call the move function of the opposing side. 
@@ -893,11 +894,10 @@ def calculate_black_perft(depth, current_depth):
 
 				# Because of how negative numbers are stored, the bitwise and of a number and its negative will equal the smallest bit in the number.
 				move = piece_moves & -piece_moves
-				x = int(round(math.log(move, 2) // 8, 0))
-				y = int(round(math.log(move, 2) % 8, 0))
+				eightx_y = int(math.log(move, 2))
 
 				# Make move and return value of board (without graphics)
-				pieces[piece].move_piece(x, y)
+				pieces[piece].move_piece(eightx_y)
 
 				# Recurse. If this calculation is the leaf of the search tree, find the position of the board.
 				# Otherwise, call the move function of the opposing side. 

@@ -7,7 +7,7 @@ class BlackKing(BlackPiece):
 		BlackPiece.__init__(self, x, y, white, index, piece_type)
 
 	# The king has a special move, castling, so he overloads piece.move_function to check for it, but then just calls it.
-	def move_piece(self, x, y):
+	def move_piece(self, eightx_y):
 		#logger.log('king.move_piece')
 		# the king may only castle if he has not moved.
 		# we only need to update these once, so add a condition. that will hopefully save a little bit of processing time
@@ -15,13 +15,13 @@ class BlackKing(BlackPiece):
 			board.castles = board.castles & 0b1100
 
 		# Make sure that the proper rook moves to the proper place
-		if self.x - x == 2:
-			pieces[1<<18].move_piece(3, 7) # queen's side
-		elif x - self.x == 2:
-			pieces[1<<19].move_piece(5, 7) # king's side
+		if self.eightx_y - eightx_y == 16:
+			pieces[1<<18].move_piece(31) # queen's side
+		elif self.eightx_y - eightx_y == -16:
+			pieces[1<<19].move_piece(47) # king's side
 
 		# move the king
-		BlackPiece.move_piece(self, x, y)
+		BlackPiece.move_piece(self, eightx_y)
 
 	def calculate_moves(self):
 		potential_moves = board.king_move_bitboards[self.eightx_y]
@@ -95,11 +95,12 @@ class BlackKing(BlackPiece):
 
 			# Make sure that the correct piece type is being used with the correct ray type (queen & bishops => diagonals, queens & rooks => ranks & files)
 			# This is a rook on a diagonal
-			if pieces[pinning_piece].type == 2 and self.x != pinning_piece_position // 8 and self.y != pinning_piece_position % 8:
+
+			if pieces[pinning_piece].type == 2 and (self.eightx_y - pinning_piece_position) // 8 != 0 and (self.eightx_y - pinning_piece_position) % 8 != 0:
 				return None
 
 			# This is a bishop on a rank or file (It is sufficient to rule out ranks and files for the bishop, because we already know that the bishop is on a ray [see above])
-			if pieces[pinning_piece].type == 3 and (self.x == pinning_piece_position // 8 or self.y == pinning_piece_position % 8):
+			if pieces[pinning_piece].type == 3 and ((self.eightx_y - pinning_piece_position) // 8 == 0 or (self.eightx_y - pinning_piece_position) % 8 == 0):
 				return None
 
 			# If so, get the squares between them

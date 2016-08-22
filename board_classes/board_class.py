@@ -22,7 +22,6 @@ class Board():
 		self.extra_black_indexes = [1<<40, 1<<41, 1<<42, 1<<43, 1<<44, 1<<45, 1<<46, 1<<47]
 
 		# En passant variables
-		self.en_passant = False
 		self.en_passant_pieces = []
 		self.en_passant_victim = 0
 

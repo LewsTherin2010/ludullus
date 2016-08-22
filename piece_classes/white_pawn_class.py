@@ -7,17 +7,17 @@ class WhitePawn(WhitePiece):
 	def __init__(self, x, y, white, index, piece_type):
 		WhitePiece.__init__(self, x, y, white, index, piece_type)
 
-	def move_piece(self, x, y):
+	def move_piece(self, eightx_y):
 		#logger.log('pawn.move_piece')
 		# ******* EN PASSANT ******* #
 		# check to see if this pawn is performing en passant, and if so, remove the en passant victim from the board.
-		if board.en_passant and self.index in board.en_passant_pieces and pieces[board.en_passant_victim].x == x:
+		if self.index in board.en_passant_pieces and pieces[board.en_passant_victim].eightx_y // 8 == eightx_y // 8:
 			pieces[board.en_passant_victim].leave_square(True)
 
-		WhitePiece.move_piece(self, x, y)
+		WhitePiece.move_piece(self, eightx_y)
 
 		# Queen promotion
-		if y == 7:
+		if eightx_y % 8 == 7:
 			self.promote_to_queen(x, y)
 
 		# Reset the halfmove clock
@@ -27,7 +27,7 @@ class WhitePawn(WhitePiece):
 		self.moves = board.white_pawn_moves[self.eightx_y] & ~board.all_piece_positions
 
 		# The precalculated "third_rank_shifted_to_fourth" is used to prevent a pawn from hopping over a piece on its first move.
-		if self.y == 1:
+		if self.eightx_y % 8 == 1:
 			self.moves = self.moves & ~board.third_rank_shifted_to_fourth
 
 		# Deal with pawn attacks
