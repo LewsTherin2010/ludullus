@@ -2,12 +2,12 @@ from globals_file import *
 import board_class
 
 class Square():
-	def __init__(self, x, y, board):
-		self.x = x
-		self.y = y
+	def __init__(self, i, board):
+		self.x = i // 8
+		self.y = i % 8
 		self.board = board
-		self.bitwise_position = 8*x + y
-		self.occupied_by = 9999
+		self.bitwise_position = i
+		self.occupied_by = 0
 
 		#Diagonal bitshift variables
 		self.a1_h8_bitshift_amount = 0

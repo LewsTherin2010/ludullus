@@ -45,11 +45,12 @@ def handle_click (event):
 	# find coordinates of click (gives x, y coords)
 	x = (event.x - board_display.x_start) // board_display.square_size
 	y = 7 - (event.y - board_display.y_start) // board_display.square_size
+	eightx_y = 8*x+y
 
 	# If nothing is selected
-	if board_display.selected == 9999:
-		if squares[x][y].occupied_by != 9999 and pieces[squares[x][y].occupied_by].white == board.white_to_move:
-			select_piece(x, y)
+	if board_display.selected == 0:
+		if squares[eightx_y].occupied_by != 0 and pieces[squares[eightx_y].occupied_by].white == board.white_to_move:
+			select_piece(x, y, eightx_y)
 
 	# If a piece is selected and the user has made a legal move
 	elif pieces[board_display.selected].moves & (1 << (x * 8 + y)) > 0:
@@ -79,7 +80,7 @@ def handle_click (event):
 	else:
 		deselect_piece()
 
-def select_piece(x, y):
+def select_piece(x, y, eightx_y):
 	#logger.log('select_piece')
 
 	# Color the selected square and redraw the piece
@@ -89,10 +90,10 @@ def select_piece(x, y):
 		square_display[x][y].color = "#765"
 
 	square_display[x][y].color_square()
-	square_display[x][y].draw_piece(x, y, squares[x][y].occupied_by)
+	square_display[x][y].draw_piece(x, y, squares[eightx_y].occupied_by)
 
 	# Store which piece is selected, and which square has been highlighted
-	board_display.selected = squares[x][y].occupied_by
+	board_display.selected = squares[eightx_y].occupied_by
 	board_display.highlighted_square = [x, y]
 
 def move_selected_piece(x, y):
@@ -102,7 +103,7 @@ def move_selected_piece(x, y):
 	pieces[board_display.selected].move_piece(x, y)
 
 	# Deselect the piece
-	board_display.selected = 9999
+	board_display.selected = 0
 
 	# Increment the fullmove counter
 	if not board.white_to_move:
@@ -184,8 +185,8 @@ def deselect_piece():
 		square_display[x][y].color = "#567"
 
 	square_display[x][y].color_square()
-	square_display[x][y].draw_piece(x, y, squares[x][y].occupied_by)
-	board_display.selected = 9999
+	square_display[x][y].draw_piece(x, y, squares[8*x+y].occupied_by)
+	board_display.selected = 0
 	board_display.highlighted_square = []
 
 def computer_move(computer_plays):
@@ -381,14 +382,13 @@ def manage_pins():
 		pinned_piece = pin['pinned_piece']
 		pinning_piece = pin['pinning_piece']
 
-		pinning_piece_position = 1 << (pieces[pinning_piece].x * 8 + pieces[pinning_piece].y)
-		pinned_piece_position = 1 << (pieces[pinned_piece].x * 8 + pieces[pinned_piece].y)
-
+		pinning_piece_position = 1 << (pieces[pinning_piece].eightx_y)
+		pinned_piece_position = 1 << (pieces[pinned_piece].eightx_y)
 
 		if pieces[pinned_piece].white:
-			king_position = 1 << (pieces[1<<30].x * 8 + pieces[1<<30].y)
+			king_position = 1 << (pieces[1<<30].eightx_y)
 		else:
-			king_position = 1 << (pieces[1<<31].x * 8 + pieces[1<<31].y)
+			king_position = 1 << (pieces[1<<31].eightx_y)
 
 		# A pinned piece can only move on the ray between the king and the pinning piece.
 		potential_moves = board.intervening_squares_bitboards[king_position + pinning_piece_position] - pinned_piece_position + pinning_piece_position
@@ -404,7 +404,7 @@ def manage_pins():
 		pieces[pinned_piece].moves = pieces[pinned_piece].moves & potential_moves
 
 def find_white_checks():
-	king_position = 1 << (pieces[1<<30].x * 8 + pieces[1<<30].y)
+	king_position = 1 << (pieces[1<<30].eightx_y)
 
 	if board.all_black_moves & king_position > 0:		
 		# If the king is in check, discover the type and location of the checking pieces
@@ -431,7 +431,7 @@ def find_white_checks():
 def find_black_checks():
 	#logger.log('find_black_checks')
 
-	king_position = 1 << (pieces[1<<31].x * 8 + pieces[1<<31].y)
+	king_position = 1 << (pieces[1<<31].eightx_y)
 
 	if board.all_white_moves & king_position > 0:
 		# If the king is in check, discover the type and location of the checking pieces
@@ -474,7 +474,7 @@ def calculate_check_moves(active_pieces, king):
 		# or interpose a piece between the checking piece and the king.
 		else:
 			checker_position = 1 << (board.checker_positions[0][0] * 8 + board.checker_positions[0][1])
-			king_position = 1 << (pieces[king].x * 8 + pieces[king].y)
+			king_position = 1 << (pieces[king].eightx_y)
 			intervening_squares = 0
 
 			if king_position + checker_position in board.intervening_squares_bitboards:
@@ -498,7 +498,7 @@ def calculate_check_moves(active_pieces, king):
 		# The checker_types array doesn't tie the position to the checker type.
 		checker_x = board.checker_positions[i][0]
 		checker_y = board.checker_positions[i][1]
-		checker_index = squares[checker_x][checker_y].occupied_by
+		checker_index = squares[8*checker_x+checker_y].occupied_by
 		checker_type = pieces[checker_index].type
 
 		if checker_type in [1, 2, 3]:
@@ -536,42 +536,41 @@ def defend_king (defence_moves, king):
 		defenders -= defender
 
 def reset_squares(position):
-	for x in range(8):
-		for y in range(8):
-			squares[x][y].occupied_by = position[x][y]
+	for i in range(64):
+			squares[i].occupied_by = position[i]
 
 def check_for_en_passant():
 
 	if board.last_move_piece_type == 5:
-		if abs(board.last_move_origin_y - board.last_move_destination_y) == 2:
+		if abs(board.last_move_origin_eightx_y - board.last_move_destination_eightx_y) == 2:
 			if board.white_to_move:
-				if board.last_move_origin_x > 0 and squares[board.last_move_origin_x - 1][board.last_move_destination_y].occupied_by in [1<<0,1<<1,1<<2,1<<3,1<<4,1<<5,1<<6,1<<7]:
-					en_passant_attacker = squares[board.last_move_origin_x - 1][board.last_move_destination_y].occupied_by
-					pieces[en_passant_attacker].moves += 1 << (board.last_move_origin_x * 8 + 5)
+				if board.last_move_origin_eightx_y > 7 and squares[board.last_move_destination_eightx_y - 8].occupied_by & 0b11111111 > 0:
+					en_passant_attacker = squares[board.last_move_destination_eightx_y - 8].occupied_by
+					pieces[en_passant_attacker].moves += 1 << (board.last_move_destination_eightx_y + 1)
 					board.en_passant = True
 					board.en_passant_pieces.append(en_passant_attacker)
-					board.en_passant_victim = squares[board.last_move_destination_x][board.last_move_destination_y].occupied_by
+					board.en_passant_victim = squares[board.last_move_destination_eightx_y].occupied_by
 
-				if board.last_move_origin_x < 7 and squares[board.last_move_origin_x + 1][board.last_move_destination_y].occupied_by in [1<<0,1<<1,1<<2,1<<3,1<<4,1<<5,1<<6,1<<7]:
-					en_passant_attacker = squares[board.last_move_origin_x + 1][board.last_move_destination_y].occupied_by
-					pieces[en_passant_attacker].moves += 1 << (board.last_move_origin_x * 8 + 5)
+				if board.last_move_origin_eightx_y < 56 and squares[board.last_move_destination_eightx_y + 8].occupied_by & 0b11111111 > 0:
+					en_passant_attacker = squares[board.last_move_destination_eightx_y + 8].occupied_by
+					pieces[en_passant_attacker].moves += 1 << (board.last_move_destination_eightx_y + 1)
 					board.en_passant = True
 					board.en_passant_pieces.append(en_passant_attacker)
-					board.en_passant_victim = squares[board.last_move_destination_x][board.last_move_destination_y].occupied_by
+					board.en_passant_victim = squares[board.last_move_destination_eightx_y].occupied_by
 			else:
-				if board.last_move_origin_x > 0 and squares[board.last_move_origin_x - 1][board.last_move_destination_y].occupied_by in [1<<8,1<<9,1<<10,1<<11,1<<12,1<<13,1<<14,1<<15]:
-					en_passant_attacker = squares[board.last_move_origin_x - 1][board.last_move_destination_y].occupied_by
-					pieces[en_passant_attacker].moves += 1 << (board.last_move_origin_x * 8 + 2)
+				if board.last_move_origin_eightx_y > 7 and squares[board.last_move_destination_eightx_y - 8].occupied_by & 0b1111111100000000 > 0:
+					en_passant_attacker = squares[board.last_move_destination_eightx_y - 8].occupied_by
+					pieces[en_passant_attacker].moves += 1 << (board.last_move_destination_eightx_y - 1)
 					board.en_passant = True
 					board.en_passant_pieces.append(en_passant_attacker)
-					board.en_passant_victim = squares[board.last_move_destination_x][board.last_move_destination_y].occupied_by
+					board.en_passant_victim = squares[board.last_move_destination_eightx_y].occupied_by
 
-				if board.last_move_origin_x < 7 and squares[board.last_move_origin_x + 1][board.last_move_destination_y].occupied_by in [1<<8,1<<9,1<<10,1<<11,1<<12,1<<13,1<<14,1<<15]:
-					en_passant_attacker = squares[board.last_move_origin_x + 1][board.last_move_destination_y].occupied_by
-					pieces[en_passant_attacker].moves += 1 << (board.last_move_origin_x * 8 + 2) # KEY ERROR 9999
+				if board.last_move_origin_eightx_y < 56 and squares[board.last_move_destination_eightx_y + 8].occupied_by & 0b1111111100000000 > 0:
+					en_passant_attacker = squares[board.last_move_destination_eightx_y + 8].occupied_by
+					pieces[en_passant_attacker].moves += 1 << (board.last_move_destination_eightx_y - 1)
 					board.en_passant = True
 					board.en_passant_pieces.append(en_passant_attacker)
-					board.en_passant_victim = squares[board.last_move_destination_x][board.last_move_destination_y].occupied_by
+					board.en_passant_victim = squares[board.last_move_destination_eightx_y].occupied_by
 
 # Bind an event handler to the left click event
 def initialize_board_display():
@@ -727,24 +726,24 @@ def initialize_with_fen_position(fen_string):
 			exit()
 
 	if 'K' in fen_array[2]:
-		pieces[1<<30].castle_h = True
+		board.castles = board.castles | 0b1000
 	else:
-		pieces[1<<30].castle_h = False
+		board.castles = board.castles & 0b0111
 
 	if 'Q' in fen_array[2]:
-		pieces[1<<30].castle_a = True
+		board.castles = board.castles | 0b0100
 	else:
-		pieces[1<<30].castle_a = False
+		board.castles = board.castles & 0b1011
 
 	if 'k' in fen_array[2]:
-		pieces[1<<31].castle_h = True
+		board.castles = board.castles | 0b0010
 	else:
-		pieces[1<<31].castle_h = False
+		board.castles = board.castles & 0b1101
 
 	if 'q' in fen_array[2]:
-		pieces[1<<31].castle_a = True
+		board.castles = board.castles | 0b0001
 	else:
-		pieces[1<<31].castle_a = False
+		board.castles = board.castles & 0b1110
 
 	# 4) EN PASSANT TARGET SQUARE
 	# Ludullus stores 5 last-move variables in the board class, and infers from those whether or not en passant is possible. 
@@ -781,15 +780,13 @@ def initialize_with_fen_position(fen_string):
 			target_square_file = 7
 
 		board.last_move_piece_type = 5
-		board.last_move_origin_x = target_square_file
-		board.last_move_destination_x = target_square_file
 
 		if target_square_rank == 2: # white
-			board.last_move_origin_y = 1
-			board.last_move_destination_y = 3
+			board.last_move_origin_eightx_y = 8*target_square_file+1
+			board.last_move_destination_eightx_y = 8*target_square_file+3
 		else: # black
-			board.last_move_origin_y = 6
-			board.last_move_destination_y = 4
+			board.last_move_origin_eightx_y = 8*target_square_file+6
+			board.last_move_destination_eightx_y = 8*target_square_file+4
 
 	# 5) HALFMOVE CLOCK
 	if fen_array[4].isdigit():
@@ -806,9 +803,9 @@ def initialize_with_fen_position(fen_string):
 	# Manually set up a couple bitboards
 	for piece in pieces:
 		if pieces[piece].white:
-			board.all_white_positions += 1<<(8 * pieces[piece].x + pieces[piece].y)
+			board.all_white_positions += 1<<(8 * pieces[piece].eightx_y)
 		else:
-			board.all_black_positions += 1<<(8 * pieces[piece].x + pieces[piece].y)
+			board.all_black_positions += 1<<(8 * pieces[piece].eightx_y)
 
 	# Get the position
 	start_position = board.get_position(squares)

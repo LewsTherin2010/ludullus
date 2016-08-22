@@ -24,16 +24,22 @@ class Board():
 		# En passant variables
 		self.en_passant = False
 		self.en_passant_pieces = []
-		self.en_passant_victim = 9999
+		self.en_passant_victim = 0
 
 		# Move variables
 		self.white_to_move = True
 
 		self.last_move_piece_type = -1
-		self.last_move_origin_x = -1
-		self.last_move_origin_y = -1
-		self.last_move_destination_x = -1
-		self.last_move_destination_y = -1
+		self.last_move_origin_eightx_y = -1
+		self.last_move_destination_eightx_y = -1
+
+		#Castles
+		# The bits here are as follow:
+		# 1000 : White castle kingside
+		# 0100 : White castle queenside
+		# 0010 : Black castle kingside
+		# 0001 : Black castle queenside
+		self.castles = 0b1111
 
 		# Check variables
 		self.checker_types = []
@@ -113,11 +119,10 @@ class Board():
 	def get_position(self, squares):
 		#logger.log('board.get_position')
 
-		position = [[9999 for x in range(8)] for y in range(8)]
+		position = [0 for i in range(64)]
 
-		for x in range (0, 8):
-			for y in range(0, 8):
-				position[x][y] = squares[x][y].occupied_by
+		for i in range(64):
+			position[i] = squares[i].occupied_by
 
 		return position
 
@@ -126,10 +131,9 @@ class Board():
 
 		position_value = 0
 
-		for x in range(8):
-			for y in range(8):
-				if position[x][y] != 9999:
-					position_value += self.piece_values[position[x][y]]
+		for i in range(64):
+			if position[i] != 0:
+				position_value += self.piece_values[position[i]]
 
 		self.nodes += 1
 

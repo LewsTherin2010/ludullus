@@ -10,33 +10,31 @@ class BlackPiece():
 		self.index = index
 		self.type = piece_type
 
-		squares[x][y].occupied_by = self.index
+		squares[self.eightx_y].occupied_by = self.index
 
 	def move_piece(self, x, y):
 		# If it's not a pawn, increment the halfmove clock
 		if self.type != 5:
 			board.halfmove_clock += 1
 
-		board.all_black_positions += 1 << squares[x][y].bitwise_position
+		board.all_black_positions += 1 << 8*x+y
 
 		# Leave the current square
 		self.leave_square()
 
 		# Kill the opposing piece, if any
-		if squares[x][y].occupied_by != 9999:
-			pieces[squares[x][y].occupied_by].leave_square(True)
+		if squares[8*x+y].occupied_by != 0:
+			pieces[squares[8*x+y].occupied_by].leave_square(True)
 
 		# Reset en passant variables
 		board.en_passant = False
 		board.en_passant_pieces = []
-		board.en_passant_victim = 9999
+		board.en_passant_victim = 0
 
 		# Reset last move variables
 		board.last_move_piece_type = self.type
-		board.last_move_origin_x = self.x
-		board.last_move_origin_y = self.y
-		board.last_move_destination_x = x
-		board.last_move_destination_y = y
+		board.last_move_origin_eightx_y = self.eightx_y
+		board.last_move_destination_eightx_y = 8*x+y
 
 		#update current piece coordinates
 		self.x = x
@@ -44,14 +42,14 @@ class BlackPiece():
 		self.eightx_y = 8*x+y
 
 		#update occupied status of target square
-		squares[x][y].occupied_by = self.index
+		squares[8*x+y].occupied_by = self.index
 
 	# This method is overwritten by the black rook class, to deal with castling.
 	def leave_square(self, captured = False):
 		#logger.log('piece.leave_square')
-		squares[self.x][self.y].occupied_by = 9999
+		squares[self.eightx_y].occupied_by = 0
 
-		board.all_black_positions -= 1 << squares[self.x][self.y].bitwise_position
+		board.all_black_positions -= 1 << squares[self.eightx_y].bitwise_position
 		if captured:
 			board.active_black_pieces -= self.index
 			board.halfmove_clock = 0
@@ -80,9 +78,9 @@ class BlackPiece():
 		board.all_defended_black_pieces = board.all_defended_black_pieces | (potential_moves & board.all_black_positions)
 
 	def calculate_a1_h8_diagonal_moves(self):
-		bitshift_amount = squares[self.x][self.y].a1_h8_bitshift_amount
-		position = squares[self.x][self.y].a1_h8_position
-		length = squares[self.x][self.y].a1_h8_length
+		bitshift_amount = squares[self.eightx_y].a1_h8_bitshift_amount
+		position = squares[self.eightx_y].a1_h8_position
+		length = squares[self.eightx_y].a1_h8_length
 
 		occupancy = (board.all_piece_positions >> bitshift_amount) & 0x8040201008040201
 		potential_moves = (board.a1_h8_diagonal_bitboards[occupancy][position] & length) << bitshift_amount
@@ -91,9 +89,9 @@ class BlackPiece():
 		board.all_defended_black_pieces = board.all_defended_black_pieces | (potential_moves & board.all_black_positions)
 
 	def calculate_a8_h1_diagonal_moves(self):
-		bitshift_amount = squares[self.x][self.y].a8_h1_bitshift_amount
-		position = squares[self.x][self.y].a8_h1_position
-		length = squares[self.x][self.y].a8_h1_length
+		bitshift_amount = squares[self.eightx_y].a8_h1_bitshift_amount
+		position = squares[self.eightx_y].a8_h1_position
+		length = squares[self.eightx_y].a8_h1_length
 
 		if bitshift_amount < 0:
 			occupancy = (board.all_piece_positions << abs(bitshift_amount)) & 0x102040810204080

@@ -8,10 +8,10 @@ class BoardDisplay(Canvas):
 		self.y_start = 10
 		self.square_size = 100
 		
-		self.current_position = [[9999 for x in range (0, 8)] for y in range (0, 8)]
+		self.current_position = [0 for i in range(64)]
 
 		# Interaction variables
-		self.selected = 9999
+		self.selected = 0
 		self.highlighted_square = []
 
 		# Move validation variables
@@ -23,21 +23,22 @@ class BoardDisplay(Canvas):
 		#logger.log('board_display.render_position')
 
 		# compare current position to new position and draw the appropriate pieces
-		for x in range (0, 8):
-			for y in range (0, 8):
-				if self.current_position[x][y] != new_position[x][y]:
+		for i in range(64):
+			x = i // 8
+			y = i % 8
+			if self.current_position[i] != new_position[i]:
 
-					# If the square has been highlighted, return it to its original color before recoloring it.
-					if square_display[x][y].color == "#987":
-						square_display[x][y].color = "#789"
-					elif square_display[x][y].color == "#765":
-						square_display[x][y].color = "#567"
+				# If the square has been highlighted, return it to its original color before recoloring it.
+				if square_display[x][y].color == "#987":
+					square_display[x][y].color = "#789"
+				elif square_display[x][y].color == "#765":
+					square_display[x][y].color = "#567"
 
-					# Display the piece move
-					square_display[x][y].color_square()
+				# Display the piece move
+				square_display[x][y].color_square()
 
-					if new_position[x][y] != 9999:
-						square_display[x][y].draw_piece(x, y, new_position[x][y])
+				if new_position[i] != 0:
+					square_display[x][y].draw_piece(x, y, new_position[i])
 
 
 		# Update the display's board position

@@ -4,9 +4,6 @@ import math
 
 class WhiteKing(WhitePiece):
 	def __init__(self, x, y, white, index, piece_type):
-		self.castle_a = True
-		self.castle_h = True
-
 		WhitePiece.__init__(self, x, y, white, index, piece_type)
 
 	# The king has a special move, castling, so he overloads piece.move_function to check for it, but then just calls it.
@@ -14,9 +11,8 @@ class WhiteKing(WhitePiece):
 		#logger.log('king.move_piece')
 		# the king may only castle if he has not moved.
 		# we only need to update these once, so add a condition. that will hopefully save a little bit of processing time
-		if self.castle_a:
-			self.castle_a = False
-			self.castle_h = False
+		if board.castles & 0b1100 > 0:
+				board.castles = board.castles & 0b0011
 
 		# Make sure that the proper rook moves to the proper place
 		if self.x - x == 2:
@@ -52,14 +48,14 @@ class WhiteKing(WhitePiece):
 
 		# Column A castle
 		# If neither the king nor the rook has moved and relevant squares are empty
-		if self.castle_a and board.all_piece_positions & 0x1010100 == 0:
+		if board.castles & 0b0100 > 0 and board.all_piece_positions & 0x1010100 == 0:
 			# If the king is not in check and would not have to move through check
 			if (board.all_black_moves | board.unrealized_black_pawn_attacks | board.black_removed_pin_moves) & 0x101010000 == 0:
 				self.moves += 0x10000
 
 		# Column H castle
 		# If neither the king nor the rook has moved and relevant squares are empty
-		if self.castle_h and board.all_piece_positions & 0x1010000000000 == 0:
+		if board.castles & 0b1000 > 0 and board.all_piece_positions & 0x1010000000000 == 0:
 			# If the king is not in check and would not have to move through check
 			if (board.all_black_moves | board.unrealized_black_pawn_attacks | board.black_removed_pin_moves) & 0x1010000000000 == 0:
 				self.moves += 1<<48
@@ -118,5 +114,5 @@ class WhiteKing(WhitePiece):
 				potential_pinned = friendly_pieces & intervening_squares
 				if potential_pinned != 0 and math.log(potential_pinned, 2) % 1 == 0:
 
-					pinned_piece = squares[int(math.log(potential_pinned, 2)) // 8][int(math.log(potential_pinned, 2)) % 8].occupied_by
+					pinned_piece = squares[int(math.log(potential_pinned, 2))].occupied_by
 					return dict({"pinned_piece": pinned_piece, "pinning_piece": pinning_piece})

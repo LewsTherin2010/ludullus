@@ -42,7 +42,7 @@ square_display = [[SquareDisplay(x, y, board_display) for y in range(8)] for x i
 
 # Create the main data structures for the engine
 board = Board()
-squares = [[Square(x, y, board) for y in range(8)] for x in range(8)]
+squares = [Square(i, board) for i in range(64)] # i = 8x+y
 
 # Create the pieces dictionary
 piece_indexes = [2**x for x in range(32)]
