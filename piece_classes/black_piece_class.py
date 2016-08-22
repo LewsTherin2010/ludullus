@@ -4,6 +4,7 @@ class BlackPiece():
 	def __init__(self, x, y, white, index, piece_type):
 		self.x = x
 		self.y = y
+		self.eightx_y = 8*x+y
 		self.white = white
 		self.moves = 0
 		self.index = index
@@ -40,6 +41,7 @@ class BlackPiece():
 		#update current piece coordinates
 		self.x = x
 		self.y = y
+		self.eightx_y = 8*x+y
 
 		#update occupied status of target square
 		squares[x][y].occupied_by = self.index

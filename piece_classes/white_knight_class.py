@@ -9,7 +9,7 @@ class WhiteKnight(WhitePiece):
 	# be a copy of all the bitboards for each knight.
 	def calculate_moves(self):
 
-		self.moves = board.knight_move_bitboards[self.x][self.y] & ~board.all_white_positions
-		board.all_defended_white_pieces = board.all_defended_white_pieces | (board.knight_move_bitboards[self.x][self.y] & board.all_white_positions)
+		self.moves = board.knight_move_bitboards[self.eightx_y] & ~board.all_white_positions
+		board.all_defended_white_pieces = board.all_defended_white_pieces | (board.knight_move_bitboards[self.eightx_y] & board.all_white_positions)
 
 		board.all_white_moves = board.all_white_moves | self.moves

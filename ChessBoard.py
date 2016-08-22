@@ -119,13 +119,23 @@ def generate_moves(position):
 	#logger.log('generate_moves')
 
 	# Reset board variables
-	board.reset_board_variables(position)
+	board.checker_types = []
+	board.checker_positions = []
 
-	# Erase the bitboards. These are maintained by the *.piece_move functions
-	board.erase_all_bitboards()
+	# Erase the bitboards that are maintained by the *.calculate_moves functions
+	board.all_white_moves = 0
+	board.all_black_moves = 0
+	board.all_defended_white_pieces = 0
+	board.all_defended_black_pieces = 0
+	board.unrealized_white_pawn_attacks = 0
+	board.unrealized_black_pawn_attacks = 0
+	board.white_removed_pin_moves = 0
+	board.black_removed_pin_moves = 0
 
 	# Populate the piece position bitboards
-	reset_position_bitboards(position)
+	board.all_piece_positions = board.all_white_positions | board.all_black_positions
+	board.third_rank_shifted_to_fourth = board.shift_third_rank_to_fourth(board.all_piece_positions) 
+	board.sixth_rank_shifted_to_fifth = board.shift_sixth_rank_to_fifth(board.all_piece_positions)
 	
 	# Recalculate all necessary information
 	calculate_all_moves_but_king_moves()
@@ -136,25 +146,17 @@ def generate_moves(position):
 	find_white_checks()
 	find_black_checks()
 
-# If a square is occupied, get the bitwise position of the square [8x + y], and add it to the appropriate bitboard
-def reset_position_bitboards(position):
-	board.all_piece_positions = board.all_white_positions | board.all_black_positions
-	board.third_rank_shifted_to_fourth = board.shift_third_rank_to_fourth(board.all_piece_positions) 
-	board.sixth_rank_shifted_to_fifth = board.shift_sixth_rank_to_fifth(board.all_piece_positions)
-
 def calculate_all_moves_but_king_moves():
 	#logger.log('calculate_all_moves_but_king_moves')
 
 	# Recalculate the moves for all active pieces except for kings
 	active_white_pieces = board.active_white_pieces - (1<<30)
-
 	while active_white_pieces > 0:
 		active_piece = active_white_pieces & -active_white_pieces
 		pieces[active_piece].calculate_moves()
 		active_white_pieces -= active_piece
 
 	active_black_pieces = board.active_black_pieces - (1<<31)
-
 	while active_black_pieces > 0:
 		active_piece = active_black_pieces & -active_black_pieces
 		pieces[active_piece].calculate_moves()
@@ -362,8 +364,6 @@ def calculate_black_move(depth, current_depth):
 		else: 
 			return {"best_move_piece": best_move_piece, "best_move_x": best_move_x, "best_move_y": best_move_y}
 
-
-
 def manage_pins():
 	#logger.log('manage_pins')
 
@@ -384,25 +384,14 @@ def manage_pins():
 		pinning_piece_position = 1 << (pieces[pinning_piece].x * 8 + pieces[pinning_piece].y)
 		pinned_piece_position = 1 << (pieces[pinned_piece].x * 8 + pieces[pinned_piece].y)
 
+
 		if pieces[pinned_piece].white:
 			king_position = 1 << (pieces[1<<30].x * 8 + pieces[1<<30].y)
 		else:
 			king_position = 1 << (pieces[1<<31].x * 8 + pieces[1<<31].y)
 
-		# Potential moves are the squares between the pinned piece and the king, if any,
-		# plus the squares between the pinned piece and the pinning piece, if any,
-		# plus the square that the pinning piece is on,
-		# provided that the pinned piece may already move to these squares
-		squares_between_king_and_pinned = 0
-		squares_between_pinned_and_pinning = 0
-
-		if king_position + pinned_piece_position in board.intervening_squares_bitboards:
-			squares_between_king_and_pinned = board.intervening_squares_bitboards[king_position + pinned_piece_position]
-
-		if pinned_piece_position + pinning_piece_position in board.intervening_squares_bitboards:
-			squares_between_pinned_and_pinning = board.intervening_squares_bitboards[pinned_piece_position + pinning_piece_position]
-
-		potential_moves = squares_between_king_and_pinned + squares_between_pinned_and_pinning + pinning_piece_position
+		# A pinned piece can only move on the ray between the king and the pinning piece.
+		potential_moves = board.intervening_squares_bitboards[king_position + pinning_piece_position] - pinned_piece_position + pinning_piece_position
 
 		# Even if a white bishop is pinned, a black king still cannot move onto a square it could have moved onto.
 		# So, store all the removed moves in the board, and reference that board in the king's move function.
@@ -415,8 +404,6 @@ def manage_pins():
 		pieces[pinned_piece].moves = pieces[pinned_piece].moves & potential_moves
 
 def find_white_checks():
-	#logger.log('find_white_checks')
-
 	king_position = 1 << (pieces[1<<30].x * 8 + pieces[1<<30].y)
 
 	if board.all_black_moves & king_position > 0:		
@@ -504,6 +491,7 @@ def calculate_check_moves(active_pieces, king):
 	moves_to_remove = 0
 	king_x = pieces[king].x
 	king_y = pieces[king].y
+	king_eightx_y = pieces[king].eightx_y
 
 	# Loop, for there may be more than 1 checker.
 	for i in range(number_of_checkers):
@@ -519,7 +507,7 @@ def calculate_check_moves(active_pieces, king):
 
 			potential_move_to_remove = 1 << ((king_x + vector_x) * 8 + (king_y + vector_y))
 
-			if board.king_move_bitboards[king_x][king_y] & potential_move_to_remove > 0:
+			if board.king_move_bitboards[king_eightx_y] & potential_move_to_remove > 0:
 				moves_to_remove += potential_move_to_remove
 
 	pieces[king].moves = pieces[king].moves - (pieces[king].moves & moves_to_remove)
@@ -553,6 +541,7 @@ def reset_squares(position):
 			squares[x][y].occupied_by = position[x][y]
 
 def check_for_en_passant():
+
 	if board.last_move_piece_type == 5:
 		if abs(board.last_move_origin_y - board.last_move_destination_y) == 2:
 			if board.white_to_move:
@@ -630,7 +619,6 @@ def initialize_with_start_position():
 	# Manually set up a couple bitboards
 	board.all_white_positions = 0x303030303030303
 	board.all_black_positions = 0xc0c0c0c0c0c0c0c0
-
 
 	# Get the position
 	start_position = board.get_position(squares)

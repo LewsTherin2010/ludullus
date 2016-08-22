@@ -78,17 +78,17 @@ class Board():
 		self.a8_h1_diagonal_bitboards = {}
 
 		# Knight move bitboards
-		self.knight_move_bitboards = [[int(0) for y in range(8)] for x in range(8)]
+		self.knight_move_bitboards = [0 for x in range(64)]
 
 		# King move bitboards
-		self.king_move_bitboards = [[0 for y in range(8)] for x in range(8)]
+		self.king_move_bitboards = [0 for x in range(64)]
 
 		# Pawn move bitboards
-		self.white_pawn_moves = [[0 for y in range(8)] for x in range(8)]
-		self.black_pawn_moves = [[0 for y in range(8)] for x in range(8)]
+		self.white_pawn_moves = [0 for x in range(64)]
+		self.black_pawn_moves = [0 for x in range(64)]
 
-		self.white_pawn_attacks = [[0 for y in range(8)] for x in range(8)]
-		self.black_pawn_attacks = [[0 for y in range(8)] for x in range(8)]
+		self.white_pawn_attacks = [0 for x in range(64)]
+		self.black_pawn_attacks = [0 for x in range(64)]
 
 		# X 1 1 1 1 1 1 X 		X 0 0 0 0 0 0 0 	 0 0 0 0 0 0 0 0
 		# 0 0 0 0 0 0 0 0		0 1 0 0 0 0 0 0		 0 0 0 0 X 0 0 0
@@ -135,28 +135,6 @@ class Board():
 
 		return position_value
 
-	def erase_all_bitboards(self):
-		#logger.log('board.erase_all_bitboards')
-
-		self.all_white_moves = 0
-		self.all_black_moves = 0
-		self.all_piece_positions = 0
-		self.all_defended_white_pieces = 0
-		self.all_defended_black_pieces = 0
-		self.unrealized_white_pawn_attacks = 0
-		self.unrealized_black_pawn_attacks = 0
-		self.white_removed_pin_moves = 0
-		self.black_removed_pin_moves = 0
-		self.third_rank_shifted_to_fourth = 0
-		self.sixth_rank_shifted_to_fifth = 0
-
-	def reset_board_variables(self, position):
-		#logger.log('board.reset_board_variables')
-
-		# Reset checked variables
-		self.checker_types = []
-		self.checker_positions = []
-
 	def initialize_knight_bitboards(self):
 		for x in range(8):
 			for y in range(8):
@@ -190,7 +168,8 @@ class Board():
 				# Done one right two (from white's perspective)
 				if x > 1 and y < 7:
 					knight_moves += piece_location / 0x8000
-				self.knight_move_bitboards[x][y] = int(knight_moves)
+
+				self.knight_move_bitboards[8 * x + y] = int(knight_moves)
 
 	def initialize_king_bitboards(self):
 		for x in range(8):
@@ -225,7 +204,7 @@ class Board():
 				# Left (from white's perspective)
 				if x > 0:
 					king_moves += piece_location / (1<<8)
-				self.king_move_bitboards[x][y] = int(king_moves)
+				self.king_move_bitboards[8*x+y] = int(king_moves)
 
 	# This function creates 2^11 words up to 8 bits in size, which in total equal 128 bytes.
 	# Within a file, there are 8 (2^3) positions a piece can occupy.
@@ -387,35 +366,35 @@ class Board():
 		for x in range(8):
 			for y in range(8):
 				if y == 1:
-					self.white_pawn_moves[x][y] += 1 << (x * 8 + (y + 1))
-					self.white_pawn_moves[x][y] += 1 << (x * 8 + (y + 2))
+					self.white_pawn_moves[8*x+y] += 1 << (x * 8 + (y + 1))
+					self.white_pawn_moves[8*x+y] += 1 << (x * 8 + (y + 2))
 				if y > 1 and y < 7:
-					self.white_pawn_moves[x][y] += 1 << (x * 8 + (y + 1))
+					self.white_pawn_moves[8*x+y] += 1 << (x * 8 + (y + 1))
 
 		# Calculate the black pawn moves
 		for x in range(8):
 			for y in range(8):
 				if y == 6:
-					self.black_pawn_moves[x][y] += 1 << (x * 8 + (y - 1))
-					self.black_pawn_moves[x][y] += 1 << (x * 8 + (y - 2))
+					self.black_pawn_moves[8*x+y] += 1 << (x * 8 + (y - 1))
+					self.black_pawn_moves[8*x+y] += 1 << (x * 8 + (y - 2))
 				if y > 0 and y < 6:
-					self.black_pawn_moves[x][y] += 1 << (x * 8 + (y - 1))
+					self.black_pawn_moves[8*x+y] += 1 << (x * 8 + (y - 1))
 
 		# Calculate white pawn attacks
 		for x in range(8):
 			for y in range(8):
 				if x > 0 and y > 0 and y < 7:
-					self.white_pawn_attacks[x][y] += 1 << (x * 8 + (y - 7))
+					self.white_pawn_attacks[8*x+y] += 1 << (x * 8 + (y - 7))
 				if x < 7 and y > 0 and y < 7:
-					self.white_pawn_attacks[x][y] += 1 << (x * 8 + (y + 9))
+					self.white_pawn_attacks[8*x+y] += 1 << (x * 8 + (y + 9))
 
 		# Calculate black pawn attacks
 		for x in range(8):
 			for y in range(8):
 				if x > 0 and y < 7 and y > 0:
-					self.black_pawn_attacks[x][y] += 1 << (x * 8 + (y - 9))
+					self.black_pawn_attacks[8*x+y] += 1 << (x * 8 + (y - 9))
 				if x < 7 and y < 7 and y > 0:
-					self.black_pawn_attacks[x][y] += 1 << (x * 8 + (y + 7))
+					self.black_pawn_attacks[8*x+y] += 1 << (x * 8 + (y + 7))
 
 	def shift_third_rank_to_fourth(self, original_bitboard):
 		return (original_bitboard & 0x404040404040404) << 1

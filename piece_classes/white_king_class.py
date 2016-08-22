@@ -28,10 +28,10 @@ class WhiteKing(WhitePiece):
 		WhitePiece.move_piece(self, x, y)
 
 	def calculate_moves(self):
-		potential_moves = board.king_move_bitboards[self.x][self.y]
+		potential_moves = board.king_move_bitboards[self.eightx_y]
 
 		# Make sure not to move onto a square the opposing king can move onto
-		potential_moves = potential_moves & ~board.king_move_bitboards[pieces[1<<31].x][pieces[1<<31].y]
+		potential_moves = potential_moves & ~board.king_move_bitboards[pieces[1<<31].eightx_y]
 
 		# Make sure not to move onto a square that an opposing pawn can attack
 		potential_moves = potential_moves & ~board.unrealized_black_pawn_attacks
@@ -74,11 +74,10 @@ class WhiteKing(WhitePiece):
 	# but it should be rather efficient, given the precalculated bitboards.
 	def find_pins(self):
 		pinned_pieces = []
-		king_position = (self.x * 8 + self.y)
 
 		for pinner_piece in board.black_pinners:
 			if pinner_piece & board.active_black_pieces > 0:
-				pinned_pieces.append(self.find_pin_by_piece(king_position, pinner_piece, board.all_white_positions, board.all_black_positions))
+				pinned_pieces.append(self.find_pin_by_piece(pinner_piece, board.all_white_positions, board.all_black_positions))
 
 		# Remove potential empty elements from the list
 		for i in range(5):
@@ -91,24 +90,24 @@ class WhiteKing(WhitePiece):
 	# that lie on a ray as its keys. The value of these keys is a bitboard that represents the intervening squares.
 	# This function creates a bitboard from the positions of the king and the pinning piece, then checks the dictionary to see if that 
 	# bitboard is a key.
-	def find_pin_by_piece(self, king_position, pinning_piece, friendly_pieces, enemy_pieces):
+	def find_pin_by_piece(self, pinning_piece, friendly_pieces, enemy_pieces):
 		# Get a bitboared representation of the potential pinning piece's position
-		pinning_piece_position = (pieces[pinning_piece].x * 8 + pieces[pinning_piece].y)
+		pinning_piece_position = (pieces[pinning_piece].eightx_y)
 
 		# Check to see if the the king and the pinning piece are on an array
-		if (1 << king_position) + (1 << pinning_piece_position) in board.intervening_squares_bitboards:
+		if (1 << self.eightx_y) + (1 << pinning_piece_position) in board.intervening_squares_bitboards:
 
 			# Make sure that the correct piece type is being used with the correct ray type (queen & bishops => diagonals, queens & rooks => ranks & files)
 			# This is a rook on a diagonal
-			if pieces[pinning_piece].type == 2 and king_position // 8 != pinning_piece_position // 8 and king_position % 8 != pinning_piece_position % 8:
+			if pieces[pinning_piece].type == 2 and self.x != pinning_piece_position // 8 and self.y != pinning_piece_position % 8:
 				return None
 
 			# This is a bishop on a rank or file (It is sufficient to rule out ranks and files for the bishop, because we already know that the bishop is on a ray [see above])
-			if pieces[pinning_piece].type == 3 and (king_position // 8 == pinning_piece_position // 8 or king_position % 8 == pinning_piece_position % 8):
+			if pieces[pinning_piece].type == 3 and (self.x == pinning_piece_position // 8 or self.y == pinning_piece_position % 8):
 				return None
 
 			# If so, get the squares between them
-			intervening_squares = board.intervening_squares_bitboards[(1 << king_position) + (1 << pinning_piece_position)]
+			intervening_squares = board.intervening_squares_bitboards[(1 << self.eightx_y) + (1 << pinning_piece_position)]
 
 			# If there are any enemy pieces between the (friendly) king and the potential pinning piece,
 			# then there is no pin.

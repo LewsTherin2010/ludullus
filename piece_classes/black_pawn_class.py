@@ -24,16 +24,16 @@ class BlackPawn(BlackPiece):
 		board.halfmove_clock = 0
 
 	def calculate_moves(self):
-		self.moves = board.black_pawn_moves[self.x][self.y] & ~board.all_piece_positions
+		self.moves = board.black_pawn_moves[self.eightx_y] & ~board.all_piece_positions
 
 		# The precalculated "sixth_rank_shifted_to_fifth" is used to prevent a pawn from hopping over a piece on its first move.
 		if self.y == 6:
 			self.moves = self.moves & ~board.sixth_rank_shifted_to_fifth
 
 		# Deal with pawn attacks
-		self.moves = self.moves + (board.black_pawn_attacks[self.x][self.y] & board.all_white_positions)
-		board.all_defended_black_pieces = board.all_defended_black_pieces | (board.black_pawn_attacks[self.x][self.y] & board.all_black_positions)
-		board.unrealized_black_pawn_attacks = board.unrealized_black_pawn_attacks | (board.black_pawn_attacks[self.x][self.y] & ~board.all_piece_positions)
+		self.moves += (board.black_pawn_attacks[self.eightx_y] & board.all_white_positions)
+		board.all_defended_black_pieces = board.all_defended_black_pieces | (board.black_pawn_attacks[self.eightx_y] & board.all_black_positions)
+		board.unrealized_black_pawn_attacks = board.unrealized_black_pawn_attacks | (board.black_pawn_attacks[self.eightx_y] & ~board.all_piece_positions)
 
 		board.all_black_moves = board.all_black_moves | self.moves
 
