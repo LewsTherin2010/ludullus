@@ -117,11 +117,13 @@ def move_selected_piece(eightx_y):
 	board_display.render_position(new_position, square_display)
 
 def generate_moves(position):
-	logger.log('generate_moves-start')
+	#logger.log('generate_moves-start')
 
 	# Reset board variables
 	board.checker_types = []
 	board.checker_positions = []
+	board.pinned_white_pieces = []
+	board.pinned_black_pieces = []
 
 	# Erase the bitboards that are maintained by the *.calculate_moves functions
 	board.all_white_moves = 0
@@ -140,12 +142,15 @@ def generate_moves(position):
 	
 	# Recalculate all necessary information
 	calculate_all_moves_but_king_moves()
-	manage_pins()
+	manage_white_pins()
+	manage_black_pins()
 
 	calculate_king_moves()
-	
-	find_white_checks()
-	find_black_checks()
+
+	if board.white_to_move:	
+		find_black_checks()
+	else:
+		find_white_checks()
 
 def calculate_all_moves_but_king_moves():
 	#logger.log('calculate_all_moves_but_king_moves')
@@ -193,14 +198,14 @@ def computer_move(computer_plays):
 	#logger.log('computer_move')
 
 	if computer_plays == 'white':
-		calculation_result = calculate_white_move(3, 3)
+		calculation_result = calculate_white_move(2, 2)
 
 		# Calculate_white_move will return either -1 or a dictionary containing instructions for moving. =1 means checkmate.
 		if calculation_result == -1: # Checkmate
 			print("Checkmate has occurred. Black wins.")
 
 	elif computer_plays == 'black':
-		calculation_result = calculate_black_move(3, 3)
+		calculation_result = calculate_black_move(2, 2)
 
 		# Calculate_black_move will return either -1 or a dictionary containing instructions for moving. -1 means checkmate.
 		if calculation_result == -1: # Checkmate
@@ -221,7 +226,7 @@ def calculate_white_move(depth, current_depth):
 	position = board.get_position(squares)
 
 	position_memento = PositionMemento()
-	position_memento.store_current_position(position, board, pieces)
+	position_memento.store_current_position(position)
 
 	generate_moves(position)
 
@@ -262,7 +267,7 @@ def calculate_white_move(depth, current_depth):
 				best_move_eightx_y = eightx_y
 		
 			# restore game state using Memento
-			restore_position = position_memento.restore_current_position(board, pieces)
+			restore_position = position_memento.restore_current_position()
 			reset_squares(restore_position)
 			generate_moves(restore_position)
 
@@ -293,7 +298,7 @@ def calculate_black_move(depth, current_depth):
 	position = board.get_position(squares)
 
 	position_memento = PositionMemento()
-	position_memento.store_current_position(position, board, pieces)
+	position_memento.store_current_position(position)
 
 	generate_moves(position)
 
@@ -335,7 +340,7 @@ def calculate_black_move(depth, current_depth):
 				best_move_eightx_y = eightx_y
 
 			# restore game state using Memento
-			restore_position = position_memento.restore_current_position(board, pieces)
+			restore_position = position_memento.restore_current_position()
 			reset_squares(restore_position)
 			generate_moves(restore_position)
 
@@ -360,40 +365,49 @@ def calculate_black_move(depth, current_depth):
 		else: 
 			return {"best_move_piece": best_move_piece, "best_move": best_move_eightx_y}
 
-def manage_pins():
-	#logger.log('manage_pins')
-
-	all_pins = []
-
-	black_pins = pieces[1<<30].find_pins()
-	white_pins = pieces[1<<31].find_pins()
-
-	all_pins.extend(black_pins)
-	all_pins.extend(white_pins)
+def manage_white_pins():
+	pieces[1<<30].find_pins()
 
 	# A pinned piece may only move on the ray between the king and the pinning piece.
 	# Thus, pawns may advance toward a pinning piece, or a bishop may take a queen that pins on the diagonal.
-	for pin in all_pins:
+	for pin in board.pinned_white_pieces:
 		pinned_piece = pin['pinned_piece']
 		pinning_piece = pin['pinning_piece']
 
 		pinning_piece_position = 1 << (pieces[pinning_piece].eightx_y)
 		pinned_piece_position = 1 << (pieces[pinned_piece].eightx_y)
 
-		if pieces[pinned_piece].white:
-			king_position = 1 << (pieces[1<<30].eightx_y)
-		else:
-			king_position = 1 << (pieces[1<<31].eightx_y)
+		king_position = 1 << (pieces[1<<30].eightx_y)
 
 		# A pinned piece can only move on the ray between the king and the pinning piece.
 		potential_moves = board.intervening_squares_bitboards[king_position + pinning_piece_position] - pinned_piece_position + pinning_piece_position
 
 		# Even if a white bishop is pinned, a black king still cannot move onto a square it could have moved onto.
 		# So, store all the removed moves in the board, and reference that board in the king's move function.
-		if pieces[pinned_piece].white:
-			board.white_removed_pin_moves = board.white_removed_pin_moves | (pieces[pinned_piece].moves - (pieces[pinned_piece].moves & potential_moves))
-		else:
-			board.black_removed_pin_moves = board.black_removed_pin_moves | (pieces[pinned_piece].moves - (pieces[pinned_piece].moves & potential_moves))
+		board.white_removed_pin_moves = board.white_removed_pin_moves | (pieces[pinned_piece].moves - (pieces[pinned_piece].moves & potential_moves))
+		# Update the pinned piece
+		pieces[pinned_piece].moves = pieces[pinned_piece].moves & potential_moves
+
+def manage_black_pins():
+	pieces[1<<31].find_pins()
+
+	# A pinned piece may only move on the ray between the king and the pinning piece.
+	# Thus, pawns may advance toward a pinning piece, or a bishop may take a queen that pins on the diagonal.
+	for pin in board.pinned_black_pieces:
+		pinned_piece = pin['pinned_piece']
+		pinning_piece = pin['pinning_piece']
+
+		pinning_piece_position = 1 << (pieces[pinning_piece].eightx_y)
+		pinned_piece_position = 1 << (pieces[pinned_piece].eightx_y)
+
+		king_position = 1 << (pieces[1<<31].eightx_y)
+
+		# A pinned piece can only move on the ray between the king and the pinning piece.
+		potential_moves = board.intervening_squares_bitboards[king_position + pinning_piece_position] - pinned_piece_position + pinning_piece_position
+
+		# Even if a white bishop is pinned, a black king still cannot move onto a square it could have moved onto.
+		# So, store all the removed moves in the board, and reference that board in the king's move function.
+		board.black_removed_pin_moves = board.black_removed_pin_moves | (pieces[pinned_piece].moves - (pieces[pinned_piece].moves & potential_moves))
 
 		# Update the pinned piece
 		pieces[pinned_piece].moves = pieces[pinned_piece].moves & potential_moves
@@ -401,7 +415,7 @@ def manage_pins():
 def find_white_checks():
 	king_position = 1 << (pieces[1<<30].eightx_y)
 
-	if board.all_black_moves & king_position > 0:		
+	if board.all_black_moves & king_position > 0:
 		# If the king is in check, discover the type and location of the checking pieces
 		active_black_pieces = board.active_black_pieces
 		while active_black_pieces > 0:
@@ -461,25 +475,24 @@ def calculate_check_moves(active_pieces, king):
 	# If there is one piece checking the king, then friendly pieces may save the king
 	# If there is more than one piece checking the king, then only the king may save himself.
 	if number_of_checkers == 1:
-		# If the single checking piece is a pawn or a knight, then the checked side can defend only by capturing the checking piece.
-		if board.checker_types[0] in [4, 5]:
-			defence_moves += 1 << (board.checker_positions[0])
+		# If there's only one chcker, capturing it is always an option
+		defence_moves += 1 << board.checker_positions[0]
 
-		# If the single checking piece is a bishop, rook, or queen, then the checked side may either capture the checking piece
-		# or interpose a piece between the checking piece and the king.
-		else:
-			checker_position = 1 << (board.checker_positions[0])
-			king_position = 1 << (pieces[king].eightx_y)
-			intervening_squares = 0
-
-			if king_position + checker_position in board.intervening_squares_bitboards:
-				intervening_squares = board.intervening_squares_bitboards[king_position + checker_position]
-
-			defence_moves += checker_position
-			defence_moves += intervening_squares
+		# If the single checking piece is not a pawn or a knight, then the checked side can defend also defend my interposing a piece
+		if board.checker_types[0] in [1, 2, 3]:
+			if ((1 << pieces[king].eightx_y) + (1 << board.checker_positions[0])) in board.intervening_squares_bitboards:
+				defence_moves += board.intervening_squares_bitboards[(1 << pieces[king].eightx_y) + (1 << board.checker_positions[0])]
 
 	# Use the defense moves array to decide how to defend the king
-	defend_king(defence_moves, king)
+	if pieces[king].white:
+		defenders = board.active_white_pieces - (1<<30)
+	else:
+		defenders = board.active_black_pieces - (1<<31)
+
+	while defenders > 0:
+		defender = defenders & -defenders
+		pieces[defender].moves = pieces[defender].moves & defence_moves
+		defenders -= defender
 
 	# If the king is being checked by a ray piece, there is an additional condition added to his moves:
 	# He may not move away from a checking ray piece on the ray that he is being checked with.
@@ -528,51 +541,37 @@ def get_vector(origin, destination):
 		else:
 			return 7
 
-def defend_king (defence_moves, king):
-	#logger.log('defend_king')
-
-	if pieces[king].white:
-		defenders = board.active_white_pieces - (1<<30)
-	else:
-		defenders = board.active_black_pieces - (1<<31)
-
-	while defenders > 0:
-		defender = defenders & -defenders
-		pieces[defender].moves = pieces[defender].moves & defence_moves
-		defenders -= defender
-
 def reset_squares(position):
 	for i in range(64):
 			squares[i].occupied_by = position[i]
 
 def check_for_en_passant():
-
 	if board.last_move_piece_type == 5:
-		if abs(board.last_move_origin_eightx_y - board.last_move_destination_eightx_y) == 2:
-			if board.white_to_move:
-				if board.last_move_origin_eightx_y > 7 and squares[board.last_move_destination_eightx_y - 8].occupied_by & 0b11111111 > 0:
-					en_passant_attacker = squares[board.last_move_destination_eightx_y - 8].occupied_by
-					pieces[en_passant_attacker].moves += 1 << (board.last_move_destination_eightx_y + 1)
-					board.en_passant_pieces.append(en_passant_attacker)
-					board.en_passant_victim = squares[board.last_move_destination_eightx_y].occupied_by
+		if board.last_move_origin_eightx_y - board.last_move_destination_eightx_y == 2:
+			if board.last_move_origin_eightx_y > 7 and squares[board.last_move_destination_eightx_y - 8].occupied_by & 0b11111111 > 0:
+				en_passant_attacker = squares[board.last_move_destination_eightx_y - 8].occupied_by
+				pieces[en_passant_attacker].moves += 1 << (board.last_move_destination_eightx_y + 1)
+				board.en_passant_pieces.append(en_passant_attacker)
+				board.en_passant_victim = squares[board.last_move_destination_eightx_y].occupied_by
 
-				if board.last_move_origin_eightx_y < 56 and squares[board.last_move_destination_eightx_y + 8].occupied_by & 0b11111111 > 0:
-					en_passant_attacker = squares[board.last_move_destination_eightx_y + 8].occupied_by
-					pieces[en_passant_attacker].moves += 1 << (board.last_move_destination_eightx_y + 1)
-					board.en_passant_pieces.append(en_passant_attacker)
-					board.en_passant_victim = squares[board.last_move_destination_eightx_y].occupied_by
-			else:
-				if board.last_move_origin_eightx_y > 7 and squares[board.last_move_destination_eightx_y - 8].occupied_by & 0b1111111100000000 > 0:
-					en_passant_attacker = squares[board.last_move_destination_eightx_y - 8].occupied_by
-					pieces[en_passant_attacker].moves += 1 << (board.last_move_destination_eightx_y - 1)
-					board.en_passant_pieces.append(en_passant_attacker)
-					board.en_passant_victim = squares[board.last_move_destination_eightx_y].occupied_by
+			if board.last_move_origin_eightx_y < 56 and squares[board.last_move_destination_eightx_y + 8].occupied_by & 0b11111111 > 0:
+				en_passant_attacker = squares[board.last_move_destination_eightx_y + 8].occupied_by
+				pieces[en_passant_attacker].moves += 1 << (board.last_move_destination_eightx_y + 1)
+				board.en_passant_pieces.append(en_passant_attacker)
+				board.en_passant_victim = squares[board.last_move_destination_eightx_y].occupied_by
 
-				if board.last_move_origin_eightx_y < 56 and squares[board.last_move_destination_eightx_y + 8].occupied_by & 0b1111111100000000 > 0:
-					en_passant_attacker = squares[board.last_move_destination_eightx_y + 8].occupied_by
-					pieces[en_passant_attacker].moves += 1 << (board.last_move_destination_eightx_y - 1)
-					board.en_passant_pieces.append(en_passant_attacker)
-					board.en_passant_victim = squares[board.last_move_destination_eightx_y].occupied_by
+		elif board.last_move_origin_eightx_y - board.last_move_destination_eightx_y == -2:
+			if board.last_move_origin_eightx_y > 7 and squares[board.last_move_destination_eightx_y - 8].occupied_by & 0b1111111100000000 > 0:
+				en_passant_attacker = squares[board.last_move_destination_eightx_y - 8].occupied_by
+				pieces[en_passant_attacker].moves += 1 << (board.last_move_destination_eightx_y - 1)
+				board.en_passant_pieces.append(en_passant_attacker)
+				board.en_passant_victim = squares[board.last_move_destination_eightx_y].occupied_by
+
+			if board.last_move_origin_eightx_y < 56 and squares[board.last_move_destination_eightx_y + 8].occupied_by & 0b1111111100000000 > 0:
+				en_passant_attacker = squares[board.last_move_destination_eightx_y + 8].occupied_by
+				pieces[en_passant_attacker].moves += 1 << (board.last_move_destination_eightx_y - 1)
+				board.en_passant_pieces.append(en_passant_attacker)
+				board.en_passant_victim = squares[board.last_move_destination_eightx_y].occupied_by
 
 # Bind an event handler to the left click event
 def initialize_board_display():

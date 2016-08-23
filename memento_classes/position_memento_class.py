@@ -1,7 +1,7 @@
 from globals_file import *
 
 class PositionMemento():
-	def store_current_position(self, position, board, pieces):
+	def store_current_position(self, position):
 		# Store last-move variables
 		self.white_to_move = board.white_to_move
 		self.last_move_piece_type = board.last_move_piece_type
@@ -27,7 +27,7 @@ class PositionMemento():
 		# Store position
 		self.position = position
 
-	def restore_current_position(self, board, pieces):
+	def restore_current_position(self):
 		# Restore last-move variables
 		board.white_to_move = self.white_to_move
 		board.last_move_piece_type = self.last_move_piece_type

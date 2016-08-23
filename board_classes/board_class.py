@@ -9,15 +9,15 @@ class Board():
 		self.piece_indexes = [1<<x for x in range(32)]
 		self.piece_values = {1<<0:1, 1<<1:1, 1<<2:1, 1<<3:1, 1<<4:1, 1<<5:1, 1<<6:1, 1<<7:1, 1<<8:-1, 1<<9:-1, 1<<10:-1, 1<<11:-1, 1<<12:-1, 1<<13:-1, 1<<14:-1, 1<<15:-1, 1<<16:5, 1<<17:5, 1<<18:-5, 1<<19:-5, 1<<20:3, 1<<21:3, 1<<22:-3, 1<<23:-3, 1<<24:3, 1<<25:3, 1<<26:-3, 1<<27:-3, 1<<28: 9, 1<<29:-9, 1<<30:10000, 1<<31:-10000}
 		
-		self.all_white_pieces = 0x533300ff # 16 bits
-		self.all_black_pieces = 0xacccff00 # 32 bits
+		self.all_white_pieces = 0b01010011001100110000000011111111
+		self.all_black_pieces = 0b10101100110011001111111100000000
 
-		self.white_pinners = set([1<<28, 1<<16, 1<<17, 1<<24, 1<<25]) # Queen, rooks, and bishops
-		self.black_pinners = set([1<<29, 1<<18, 1<<19, 1<<26, 1<<27]) # Queen, rooks, and bishops
+		self.white_pinners = 0b00010011000000110000000000000000 # Queen, rooks, and bishops
+		self.black_pinners = 0b00101100000011000000000000000000 # Queen, rooks, and bishops
 
-		self.active_white_pieces = 0x533300ff # 16 bits
-		self.active_black_pieces = 0xacccff00 # 32 bits
-
+		self.active_white_pieces = 0b01010011001100110000000011111111
+		self.active_black_pieces = 0b10101100110011001111111100000000
+								   
 		self.extra_white_indexes = [1<<32, 1<<33, 1<<34, 1<<35, 1<<36, 1<<37, 1<<38, 1<<39]
 		self.extra_black_indexes = [1<<40, 1<<41, 1<<42, 1<<43, 1<<44, 1<<45, 1<<46, 1<<47]
 
@@ -43,6 +43,10 @@ class Board():
 		# Check variables
 		self.checker_types = []
 		self.checker_positions = []
+
+		# pin arrays
+		self.pinned_white_pieces = []
+		self.pinned_black_pieces = []
 
 		# FEN variables - These are to enable load from Forsyth-Edwards notation
 		self.en_passant_target_square = ''
