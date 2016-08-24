@@ -1,6 +1,7 @@
 from globals_file import *
 from black_piece_class import *
 from black_queen_class import *
+from constant_bitboards import *
 import math
 
 class BlackPawn(BlackPiece):
@@ -24,21 +25,20 @@ class BlackPawn(BlackPiece):
 		board.halfmove_clock = 0
 
 	def calculate_moves(self):
-		self.moves = board.black_pawn_moves[self.eightx_y] & ~board.all_piece_positions
+		self.moves = black_pawn_moves[self.eightx_y] & ~board.all_piece_positions
 
 		# The precalculated "sixth_rank_shifted_to_fifth" is used to prevent a pawn from hopping over a piece on its first move.
 		if self.eightx_y % 8 == 6:
 			self.moves = self.moves & ~board.sixth_rank_shifted_to_fifth
 
 		# Deal with pawn attacks
-		self.moves += (board.black_pawn_attacks[self.eightx_y] & board.all_white_positions)
-		board.all_defended_black_pieces = board.all_defended_black_pieces | (board.black_pawn_attacks[self.eightx_y] & board.all_black_positions)
-		board.unrealized_black_pawn_attacks = board.unrealized_black_pawn_attacks | (board.black_pawn_attacks[self.eightx_y] & ~board.all_piece_positions)
+		self.moves += (black_pawn_attacks[self.eightx_y] & board.all_white_positions)
+		board.all_defended_black_pieces = board.all_defended_black_pieces | (black_pawn_attacks[self.eightx_y] & board.all_black_positions)
+		board.unrealized_black_pawn_attacks = board.unrealized_black_pawn_attacks | (black_pawn_attacks[self.eightx_y] & ~board.all_piece_positions)
 
 		board.all_black_moves = board.all_black_moves | self.moves
 
 	def promote_to_queen(self, x, y):
-
 		# Leave the square
 		self.leave_square(True)
 

@@ -9,12 +9,18 @@ sys.path.append('.\\piece_classes')
 sys.path.append('.\\memento_classes')
 sys.path.append('.\\display_classes')
 
-from globals_file import *
 from logger_class import *
-from board_class import *
+from constant_bitboards import *
+
+# **********************************************************
+# ************************* CLASSES ************************
+# **********************************************************
+
+from globals_file import *
 from board_display_class import *
-from square_class import *
 from square_display_class import *
+from board_class import *
+from square_class import *
 from white_piece_class import *
 from black_piece_class import *
 
@@ -74,7 +80,6 @@ def handle_click (event):
 
 			position = board.get_position(squares)
 			generate_moves(position)
-		
 
 	# If a piece is selected and the user has made a non-move click
 	else:
@@ -198,14 +203,14 @@ def computer_move(computer_plays):
 	#logger.log('computer_move')
 
 	if computer_plays == 'white':
-		calculation_result = calculate_white_move(2, 2)
+		calculation_result = calculate_white_move(3, 3)
 
 		# Calculate_white_move will return either -1 or a dictionary containing instructions for moving. =1 means checkmate.
 		if calculation_result == -1: # Checkmate
 			print("Checkmate has occurred. Black wins.")
 
 	elif computer_plays == 'black':
-		calculation_result = calculate_black_move(2, 2)
+		calculation_result = calculate_black_move(3, 3)
 
 		# Calculate_black_move will return either -1 or a dictionary containing instructions for moving. -1 means checkmate.
 		if calculation_result == -1: # Checkmate
@@ -380,7 +385,7 @@ def manage_white_pins():
 		king_position = 1 << (pieces[1<<30].eightx_y)
 
 		# A pinned piece can only move on the ray between the king and the pinning piece.
-		potential_moves = board.intervening_squares_bitboards[king_position + pinning_piece_position] - pinned_piece_position + pinning_piece_position
+		potential_moves = intervening_squares_bitboards[king_position + pinning_piece_position] - pinned_piece_position + pinning_piece_position
 
 		# Even if a white bishop is pinned, a black king still cannot move onto a square it could have moved onto.
 		# So, store all the removed moves in the board, and reference that board in the king's move function.
@@ -403,7 +408,7 @@ def manage_black_pins():
 		king_position = 1 << (pieces[1<<31].eightx_y)
 
 		# A pinned piece can only move on the ray between the king and the pinning piece.
-		potential_moves = board.intervening_squares_bitboards[king_position + pinning_piece_position] - pinned_piece_position + pinning_piece_position
+		potential_moves = intervening_squares_bitboards[king_position + pinning_piece_position] - pinned_piece_position + pinning_piece_position
 
 		# Even if a white bishop is pinned, a black king still cannot move onto a square it could have moved onto.
 		# So, store all the removed moves in the board, and reference that board in the king's move function.
@@ -480,8 +485,8 @@ def calculate_check_moves(active_pieces, king):
 
 		# If the single checking piece is not a pawn or a knight, then the checked side can defend also defend my interposing a piece
 		if board.checker_types[0] in [1, 2, 3]:
-			if ((1 << pieces[king].eightx_y) + (1 << board.checker_positions[0])) in board.intervening_squares_bitboards:
-				defence_moves += board.intervening_squares_bitboards[(1 << pieces[king].eightx_y) + (1 << board.checker_positions[0])]
+			if ((1 << pieces[king].eightx_y) + (1 << board.checker_positions[0])) in intervening_squares_bitboards:
+				defence_moves += intervening_squares_bitboards[(1 << pieces[king].eightx_y) + (1 << board.checker_positions[0])]
 
 	# Use the defense moves array to decide how to defend the king
 	if pieces[king].white:
@@ -514,7 +519,7 @@ def calculate_check_moves(active_pieces, king):
 			else:
 				potential_move_too_remove = 0
 
-			if board.king_move_bitboards[king_eightx_y] & potential_move_to_remove > 0:
+			if king_move_bitboards[king_eightx_y] & potential_move_to_remove > 0:
 				moves_to_remove += potential_move_to_remove
 
 	pieces[king].moves = pieces[king].moves - (pieces[king].moves & moves_to_remove)

@@ -1,3 +1,4 @@
+from constant_bitboards import *
 from black_piece_class import *
 
 class BlackKnight(BlackPiece):
@@ -8,7 +9,7 @@ class BlackKnight(BlackPiece):
 	# I store them in the board, rather than in the piece, because if they were stored in the piece, then there would
 	# be a copy of all the bitboards for each knight.
 	def calculate_moves(self):
-		self.moves = board.knight_move_bitboards[self.eightx_y] & ~board.all_black_positions
-		board.all_defended_black_pieces = board.all_defended_black_pieces | (board.knight_move_bitboards[self.eightx_y] & board.all_black_positions)
+		self.moves = knight_move_bitboards[self.eightx_y] & ~board.all_black_positions
+		board.all_defended_black_pieces = board.all_defended_black_pieces | (knight_move_bitboards[self.eightx_y] & board.all_black_positions)
 
 		board.all_black_moves = board.all_black_moves | self.moves

@@ -1,5 +1,4 @@
 from tkinter import *
-from logger_class import *
 
 class BoardDisplay(Canvas):
 	def __init__(self, parent):
@@ -20,7 +19,6 @@ class BoardDisplay(Canvas):
 		Canvas.__init__(self, parent, height = 820, width = 820, bg = '#222')
 
 	def render_position(self, new_position, square_display):
-		#logger.log('board_display.render_position')
 
 		# compare current position to new position and draw the appropriate pieces
 		for i in range(64):

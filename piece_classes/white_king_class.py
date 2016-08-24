@@ -1,5 +1,6 @@
 from white_piece_class import *
 from globals_file import *
+from constant_bitboards import *
 import math
 
 class WhiteKing(WhitePiece):
@@ -24,10 +25,10 @@ class WhiteKing(WhitePiece):
 		WhitePiece.move_piece(self, eightx_y)
 
 	def calculate_moves(self):
-		potential_moves = board.king_move_bitboards[self.eightx_y]
+		potential_moves = king_move_bitboards[self.eightx_y]
 
 		# Make sure not to move onto a square the opposing king can move onto
-		potential_moves = potential_moves & ~board.king_move_bitboards[pieces[1<<31].eightx_y]
+		potential_moves = potential_moves & ~king_move_bitboards[pieces[1<<31].eightx_y]
 
 		# Make sure not to move onto a square that an opposing pawn can attack
 		potential_moves = potential_moves & ~board.unrealized_black_pawn_attacks
@@ -82,7 +83,7 @@ class WhiteKing(WhitePiece):
 			pinning_piece_position = (pieces[pinning_piece].eightx_y)
 
 			# Check to see if the the king and the pinning piece are on an array
-			if (1 << self.eightx_y) + (1 << pinning_piece_position) in board.intervening_squares_bitboards:
+			if (1 << self.eightx_y) + (1 << pinning_piece_position) in intervening_squares_bitboards:
 
 				# Make sure that the correct piece type is being used with the correct ray type (queen & bishops => diagonals, queens & rooks => ranks & files)
 				# This is a rook on a diagonal
@@ -92,7 +93,7 @@ class WhiteKing(WhitePiece):
 					if not (pieces[pinning_piece].type == 3 and ((self.eightx_y - pinning_piece_position) // 8 == 0 or (self.eightx_y - pinning_piece_position) % 8 == 0)):
 
 						# If so, get the squares between them
-						intervening_squares = board.intervening_squares_bitboards[(1 << self.eightx_y) + (1 << pinning_piece_position)]
+						intervening_squares = intervening_squares_bitboards[(1 << self.eightx_y) + (1 << pinning_piece_position)]
 
 						# If there are any enemy pieces between the (friendly) king and the potential pinning piece,
 						# then there is no pin.

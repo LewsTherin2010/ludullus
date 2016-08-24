@@ -1,6 +1,7 @@
 from globals_file import *
 from white_piece_class import *
 from white_queen_class import *
+from constant_bitboards import *
 import math
 
 class WhitePawn(WhitePiece):
@@ -24,16 +25,16 @@ class WhitePawn(WhitePiece):
 		board.halfmove_clock = 0
 
 	def calculate_moves(self):
-		self.moves = board.white_pawn_moves[self.eightx_y] & ~board.all_piece_positions
+		self.moves = white_pawn_moves[self.eightx_y] & ~board.all_piece_positions
 
 		# The precalculated "third_rank_shifted_to_fourth" is used to prevent a pawn from hopping over a piece on its first move.
 		if self.eightx_y % 8 == 1:
 			self.moves = self.moves & ~board.third_rank_shifted_to_fourth
 
 		# Deal with pawn attacks
-		self.moves += (board.white_pawn_attacks[self.eightx_y] & board.all_black_positions)
-		board.all_defended_white_pieces = board.all_defended_white_pieces | (board.white_pawn_attacks[self.eightx_y] & board.all_white_positions)
-		board.unrealized_white_pawn_attacks = board.unrealized_white_pawn_attacks | (board.white_pawn_attacks[self.eightx_y] & ~board.all_piece_positions)
+		self.moves += (white_pawn_attacks[self.eightx_y] & board.all_black_positions)
+		board.all_defended_white_pieces = board.all_defended_white_pieces | (white_pawn_attacks[self.eightx_y] & board.all_white_positions)
+		board.unrealized_white_pawn_attacks = board.unrealized_white_pawn_attacks | (white_pawn_attacks[self.eightx_y] & ~board.all_piece_positions)
 
 		board.all_white_moves = board.all_white_moves | self.moves
 

@@ -1,4 +1,5 @@
 from globals_file import *
+from constant_bitboards import *
 
 class WhitePiece():
 	def __init__(self, x, y, white, index, piece_type):
@@ -58,14 +59,14 @@ class WhitePiece():
 
 	def calculate_file_moves(self):
 		occupancy = (board.all_piece_positions >> (self.eightx_y - (self.eightx_y % 8))) & 255
-		potential_moves = board.file_bitboards[self.eightx_y % 8][occupancy] << (self.eightx_y - (self.eightx_y % 8))
+		potential_moves = file_bitboards[self.eightx_y % 8][occupancy] << (self.eightx_y - (self.eightx_y % 8))
 
 		self.moves += potential_moves & ~board.all_white_positions
 		board.all_defended_white_pieces = board.all_defended_white_pieces | (potential_moves & board.all_white_positions)
 
 	def calculate_rank_moves(self):
 		occupancy = (board.all_piece_positions >> (self.eightx_y % 8)) & 0x101010101010101
-		potential_moves = board.rank_bitboards[occupancy][self.eightx_y // 8] << (self.eightx_y % 8)
+		potential_moves = rank_bitboards[occupancy][self.eightx_y // 8] << (self.eightx_y % 8)
 
 		self.moves += potential_moves & ~board.all_white_positions
 		board.all_defended_white_pieces = board.all_defended_white_pieces | (potential_moves & board.all_white_positions)
@@ -76,7 +77,7 @@ class WhitePiece():
 		length = squares[self.eightx_y].a1_h8_length
 
 		occupancy = (board.all_piece_positions >> bitshift_amount) & 0x8040201008040201
-		potential_moves = (board.a1_h8_diagonal_bitboards[occupancy][position] & length) << bitshift_amount
+		potential_moves = (a1_h8_diagonal_bitboards[occupancy][position] & length) << bitshift_amount
 
 		self.moves += potential_moves & ~board.all_white_positions
 		board.all_defended_white_pieces = board.all_defended_white_pieces | (potential_moves & board.all_white_positions)
@@ -88,10 +89,10 @@ class WhitePiece():
 
 		if bitshift_amount < 0:
 			occupancy = (board.all_piece_positions << abs(bitshift_amount)) & 0x102040810204080
-			potential_moves = (board.a8_h1_diagonal_bitboards[occupancy][position] & length) >> abs(bitshift_amount)
+			potential_moves = (a8_h1_diagonal_bitboards[occupancy][position] & length) >> abs(bitshift_amount)
 		else:
 			occupancy = (board.all_piece_positions >> bitshift_amount) & 0x102040810204080
-			potential_moves = (board.a8_h1_diagonal_bitboards[occupancy][position] & length) << bitshift_amount
+			potential_moves = (a8_h1_diagonal_bitboards[occupancy][position] & length) << bitshift_amount
 
 		self.moves += potential_moves & ~board.all_white_positions
 		board.all_defended_white_pieces = board.all_defended_white_pieces | (potential_moves & board.all_white_positions)
