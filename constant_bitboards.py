@@ -212,7 +212,7 @@ def initialize_file_bitboards():
 
 
 # See comment for initialize_file_bitboards()
-# This must be accessed by self.rank_bitboards[occupancy][position]
+# This must be accessed by rank_bitboards[occupancy][position]
 def initialize_rank_bitboards():
 	square_array = [1<<0, 1<<8, 1<<16, 1<<24, 1<<32, 1<<40, 1<<48, 1<<56]
 
@@ -254,7 +254,7 @@ def initialize_rank_bitboards():
 
 
 # See comment for initialize_file_bitboards()
-# This must be accessed by self.a1_h8_diagonal_bitboards[occupancy][position]
+# This must be accessed by a1_h8_diagonal_bitboards[occupancy][position]
 def initialize_a1_h8_diagonal_bitboards():
 	square_array = [1<<0, 1<<9, 1<<18, 1<<27, 1<<36, 1<<45, 1<<54, 1<<63]
 
@@ -296,7 +296,7 @@ def initialize_a1_h8_diagonal_bitboards():
 
 
 # See comment for initialize_file_bitboards()
-# This must be accessed by self.a8_h1_diagonal_bitboards[occupancy][position]
+# This must be accessed by a8_h1_diagonal_bitboards[occupancy][position]
 def initialize_a8_h1_diagonal_bitboards():
 	square_array = [1<<7, 1<<14, 1<<21, 1<<28, 1<<35, 1<<42, 1<<49, 1<<56]
 
@@ -336,6 +336,133 @@ def initialize_a8_h1_diagonal_bitboards():
 
 					possible_move += 1
 
+def calculate_a1_h8_diagonal_bitboard_variables():
+	for x in range(8):
+		for y in range(8):
+			if x - y == -7:
+				a1_h8_bitshift_amounts.append(7)
+				a1_h8_lengths.append(0b1)
+				a1_h8_positions.append(x)
+			elif x - y == -6:
+				a1_h8_bitshift_amounts.append(6)
+				a1_h8_lengths.append(0b1000000001)
+				a1_h8_positions.append(x)
+			elif x - y == -5:
+				a1_h8_bitshift_amounts.append(5)
+				a1_h8_lengths.append(0b1000000001000000001)
+				a1_h8_positions.append(x)
+			elif x - y == -4:
+				a1_h8_bitshift_amounts.append(4)
+				a1_h8_lengths.append(0b1000000001000000001000000001)
+				a1_h8_positions.append(x)
+			elif x - y == -3:
+				a1_h8_bitshift_amounts.append(3)
+				a1_h8_lengths.append(0b1000000001000000001000000001000000001)
+				a1_h8_positions.append(x)
+			elif x - y == -2:
+				a1_h8_bitshift_amounts.append(2)
+				a1_h8_lengths.append(0b1000000001000000001000000001000000001000000001)
+				a1_h8_positions.append(x)
+			elif x - y == -1:
+				a1_h8_bitshift_amounts.append(1)
+				a1_h8_lengths.append(0b1000000001000000001000000001000000001000000001000000001)
+				a1_h8_positions.append(x)
+			elif x - y == 0:
+				a1_h8_bitshift_amounts.append(0)
+				a1_h8_lengths.append(0b1000000001000000001000000001000000001000000001000000001000000001)
+				a1_h8_positions.append(x)
+			elif x - y == 1:
+				a1_h8_bitshift_amounts.append(8)
+				a1_h8_lengths.append(0b1000000001000000001000000001000000001000000001000000001)
+				a1_h8_positions.append(y)
+			elif x - y == 2:
+				a1_h8_bitshift_amounts.append(16)
+				a1_h8_lengths.append(0b1000000001000000001000000001000000001000000001)
+				a1_h8_positions.append(y)
+			elif x - y == 3:
+				a1_h8_bitshift_amounts.append(24)
+				a1_h8_lengths.append(0b1000000001000000001000000001000000001)
+				a1_h8_positions.append(y)
+			elif x - y == 4:
+				a1_h8_bitshift_amounts.append(32)
+				a1_h8_lengths.append(0b1000000001000000001000000001)
+				a1_h8_positions.append(y)
+			elif x - y == 5:
+				a1_h8_bitshift_amounts.append(40)
+				a1_h8_lengths.append(0b1000000001000000001)
+				a1_h8_positions.append(y)
+			elif x - y == 6:
+				a1_h8_bitshift_amounts.append(48)
+				a1_h8_lengths.append(0b1000000001)
+				a1_h8_positions.append(y)
+			elif x - y == 7:
+				a1_h8_bitshift_amounts.append(56)
+				a1_h8_lengths.append(0b1)
+				a1_h8_positions.append(y)
+
+def calculate_a8_h1_diagonal_bitboard_variables():
+	for x in range(8):
+		for y in range(8):
+			if x + y == 0:
+				a8_h1_bitshift_amounts.append(-7)
+				a8_h1_lengths.append(0b10000000)
+				a8_h1_positions.append(x)
+			elif x + y == 1:
+				a8_h1_bitshift_amounts.append(-6)
+				a8_h1_lengths.append(0b100000010000000)
+				a8_h1_positions.append(x)
+			elif x + y == 2:
+				a8_h1_bitshift_amounts.append(-5)
+				a8_h1_lengths.append(0b1000000100000010000000)
+				a8_h1_positions.append(x)
+			elif x + y == 3:
+				a8_h1_bitshift_amounts.append(-4)
+				a8_h1_lengths.append(0b10000001000000100000010000000)
+				a8_h1_positions.append(x)
+			elif x + y == 4:
+				a8_h1_bitshift_amounts.append(-3)
+				a8_h1_lengths.append(0b100000010000001000000100000010000000)
+				a8_h1_positions.append(x)
+			elif x + y == 5:
+				a8_h1_bitshift_amounts.append(-2)
+				a8_h1_lengths.append(0b1000000100000010000001000000100000010000000)
+				a8_h1_positions.append(x)
+			elif x + y == 6:
+				a8_h1_bitshift_amounts.append(-1)
+				a8_h1_lengths.append(0b10000001000000100000010000001000000100000010000000)
+				a8_h1_positions.append(x)
+			elif x + y == 7:
+				a8_h1_bitshift_amounts.append(0)
+				a8_h1_lengths.append(0b100000010000001000000100000010000001000000100000010000000)
+				a8_h1_positions.append(x)
+			elif x + y == 8:
+				a8_h1_bitshift_amounts.append(8)
+				a8_h1_lengths.append(0b10000001000000100000010000001000000100000010000000)
+				a8_h1_positions.append(7 - y)
+			elif x + y == 9:
+				a8_h1_bitshift_amounts.append(16)
+				a8_h1_lengths.append(0b1000000100000010000001000000100000010000000)
+				a8_h1_positions.append(7 - y)
+			elif x + y == 10:
+				a8_h1_bitshift_amounts.append(24)
+				a8_h1_lengths.append(0b100000010000001000000100000010000000)
+				a8_h1_positions.append(7 - y)
+			elif x + y == 11:
+				a8_h1_bitshift_amounts.append(32)
+				a8_h1_lengths.append(0b10000001000000100000010000000)
+				a8_h1_positions.append(7 - y)
+			elif x + y == 12:
+				a8_h1_bitshift_amounts.append(40)
+				a8_h1_lengths.append(0b1000000100000010000000)
+				a8_h1_positions.append(7 - y)
+			elif x + y == 13:
+				a8_h1_bitshift_amounts.append(48)
+				a8_h1_lengths.append(0b100000010000000)
+				a8_h1_positions.append(7 - y)
+			elif x + y == 14:
+				a8_h1_bitshift_amounts.append(56)
+				a8_h1_lengths.append(0b10000000)
+				a8_h1_positions.append(7 - y)
 
 # ****************************************
 # ************ DECLARATIONS **************
@@ -355,7 +482,6 @@ initialize_intervening_square_bitboards()
 # Knight move bitboards
 knight_move_bitboards = [0 for x in range(64)]
 initialize_knight_bitboards()
-
 
 # King move bitboards
 king_move_bitboards = [0 for x in range(64)]
@@ -385,3 +511,13 @@ initialize_a1_h8_diagonal_bitboards()
 
 a8_h1_diagonal_bitboards = {}
 initialize_a8_h1_diagonal_bitboards()
+
+a1_h8_bitshift_amounts = []
+a1_h8_lengths = []
+a1_h8_positions = []
+calculate_a1_h8_diagonal_bitboard_variables()
+
+a8_h1_bitshift_amounts = []
+a8_h1_lengths = []
+a8_h1_positions = []
+calculate_a8_h1_diagonal_bitboard_variables()

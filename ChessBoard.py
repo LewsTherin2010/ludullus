@@ -1,633 +1,27 @@
 # ************************* INCLUDES ***********************
 import sys
-import copy
 import math
 import time
 from tkinter import *
 from logger_class import *
 from constant_bitboards import *
+from display_classes import *
 
 # **********************************************************
 # ************************* CLASSES ************************
 # **********************************************************
-class BoardDisplay(Canvas):
-	def __init__(self, parent):
-		# Display variables
-		self.x_start = 10
-		self.y_start = 10
-		self.square_size = 100
-		
-		self.current_position = [0 for i in range(64)]
-
-		# Interaction variables
-		self.selected = 0
-		self.highlighted_square = []
-
-		# Move validation variables
-		self.white_to_move = True
-
-		Canvas.__init__(self, parent, height = 820, width = 820, bg = '#222')
-
-	def render_position(self, new_position, square_display):
-
-		# compare current position to new position and draw the appropriate pieces
-		for i in range(64):
-			x = i // 8
-			y = i % 8
-			if self.current_position[i] != new_position[i]:
-
-				# If the square has been highlighted, return it to its original color before recoloring it.
-				if square_display[x][y].color == "#987":
-					square_display[x][y].color = "#789"
-				elif square_display[x][y].color == "#765":
-					square_display[x][y].color = "#567"
-
-				# Display the piece move
-				square_display[x][y].color_square()
-
-				if new_position[i] != 0:
-					square_display[x][y].draw_piece(x, y, new_position[i])
-
-
-		# Update the display's board position
-		self.current_position = new_position
-
-class SquareDisplay():
-	def __init__(self, x, y, board_display):
-		self.x_start = board_display.x_start + board_display.square_size * x
-		self.y_start = board_display.y_start + board_display.square_size * (7 - y)
-		self.x_end = board_display.x_start + board_display.square_size * (x + 1)
-		self.y_end = board_display.y_start + board_display.square_size * (8 - y)
-		self.x = x
-		self.y = y
-		self.board_display = board_display
-
-		if x % 2 == y % 2:
-			self.color = "#567"
-		else:
-			self.color = "#789"
-
-		self.color_square()
-
-	def color_square(self):
-		self.board_display.create_rectangle(self.x_start, self.y_start, self.x_end, self.y_end, outline = "#666", fill = self.color)
-
-	# object_definition: 2D list that contains a scale and 1 or more shapes that make an object, [[scale], [x1, y1, x2, y2, ... xn, yn], [x1, y1, x2, y2, ... nx, yn]]
-	# This function will rotate any received object 180 degrees around an implied origin
-	def rotate_object_180(self, object_definition):
-		
-		length = len(object_definition)
-		new_object_definition = [[] for i in range(length)]
-		new_object_definition[0] = object_definition[0]
-
-		counter = 1
-		for shape in object_definition[1:]:
-			new_shape_definition = []
-			for coordinate in shape:
-				new_shape_definition.append(new_object_definition[0][0] - coordinate)
-			new_object_definition[counter] = new_shape_definition
-			counter += 1
-
-		return new_object_definition
-
-	#this changes proportional coordinates to actual coordinates
-	def get_actual_coords(self, x, y, denom, nums, points): 
-		coords = [[] for i in range(points * 2)]
-		i = 1
-
-		while i <= points:
-			coords[2 * i - 2] = self.x_start + (nums[2 * i - 2] / denom) * self.board_display.square_size
-			coords[2 * i - 1] = self.y_start + (nums[2 * i - 1] / denom) * self.board_display.square_size
-			i += 1
-
-		return coords
-
-	def draw_piece(self, x, y, index):
-
-		piece_type = pieces[index].type
-		white = pieces[index].white
-
-		if piece_type == 0:
-			self.draw_king(x, y, white)
-		elif piece_type == 1:
-			self.draw_queen(x, y, white)
-		elif piece_type == 2:
-			self.draw_rook(x, y, white)
-		elif piece_type == 3:
-			self.draw_bishop(x, y, white)
-		elif piece_type == 4:
-			self.draw_knight(x, y, white)
-		elif piece_type == 5:
-			self.draw_pawn(x, y, white)
-
-	def draw_pawn(self, x, y, white):
-		# Set the background color, and the piece color
-		bg_color = self.color
-
-		if white:
-			piece_color = '#bbb'
-		else:
-			piece_color = '#444'
-
-		# define shapes as proportions [[denominator], [xnum1, ynum1, ... , xnumn, ynumn], [shape2], ..., [shapen]]
-		shields = [[4000.0], [500.0, 1125.0, 3500.0, 1125.0, 3500.0, 1375.0, 500.0, 1375.0]]
-		pikes = [[4000.0]
-		, [250, 250, 2500, 2750, 3000, 3500, 3000, 3125, 3500, 3500, 3125, 3000, 3500, 3000, 2750, 2500]
-		, [3750, 250, 1250, 2500, 500, 3000, 875, 3000, 500, 3500, 1000, 3125, 1000, 3500, 1500, 2750]
-		]
-		
-		pommels = [[4000.0]
-		, [500, 2500, 1500, 2500, 1500, 3500, 1250, 2750]
-		, [2500, 2500, 3500, 2500, 2750, 2750, 2500, 3500]
-		]
-
-		# rotate if the piece is black
-		if not white:
-			shields = self.rotate_object_180(shields)
-			pikes = self.rotate_object_180(pikes)
-			pommels = self.rotate_object_180(pommels)
-
-		# convert proportions to coordinates
-		shield = self.get_actual_coords(x, y, shields[0][0], shields[1], 4)
-		pike1 = self.get_actual_coords(x, y, pikes[0][0], pikes[1], 8)
-		pike2 = self.get_actual_coords(x, y, pikes[0][0], pikes[2], 8)
-		pommel1 = self.get_actual_coords(x, y, pommels[0][0], pommels[1], 4)
-		pommel2 = self.get_actual_coords(x, y, pommels[0][0], pommels[2], 4)		
-
-		#draw the actual shapes
-		self.board_display.create_polygon(shield[0], shield[1], shield[2], shield[3], shield[4], shield[5], shield[6], shield[7], outline = piece_color, fill = bg_color)
-		self.board_display.create_polygon(pike1[0], pike1[1], pike1[2], pike1[3], pike1[4], pike1[5], pike1[6], pike1[7], pike1[8], pike1[9], pike1[10], pike1[11], pike1[12], pike1[13], pike1[14], pike1[15], outline = piece_color, fill = piece_color)
-		self.board_display.create_polygon(pike2[0], pike2[1], pike2[2], pike2[3], pike2[4], pike2[5], pike2[6], pike2[7], pike2[8], pike2[9], pike2[10], pike2[11], pike2[12], pike2[13], pike2[14], pike2[15], outline = piece_color, fill = piece_color)
-		self.board_display.create_polygon(pommel1[0], pommel1[1], pommel1[2], pommel1[3], pommel1[4], pommel1[5], pommel1[6], pommel1[7], outline = piece_color, fill = bg_color)
-		self.board_display.create_polygon(pommel2[0], pommel2[1], pommel2[2], pommel2[3], pommel2[4], pommel2[5], pommel2[6], pommel2[7], outline = piece_color, fill = bg_color)
-
-	def draw_knight(self, x, y, white):
-		bg_color = self.color
-
-		if white:
-			piece_color = '#ccc'
-		else:
-			piece_color = '#333'
-
-		# define shapes as proportions [[denominator], [xnum1, ynum1, ... , xnumn, ynumn], [shape2], ..., [shapen]]
-		polygons = [[4000.0]
-		, [500.0, 1200.0, 2500.0, 3200.0, 3500.0, 2200.0, 2500.0, 2950.0]
-		, [500.0, 2200.0, 1500.0, 1200.0, 3500.0, 3200.0, 1500.0, 1450.0]
-		, [500.0, 2200.0, 1500.0, 3200.0, 3500.0, 1200.0, 1500.0, 2950.0]
-		, [500.0, 3200.0, 2500.0, 1200.0, 3500.0, 2200.0, 2500.0, 1450.0]
-		, [2000.0, 200.0, 1000.0, 1200.0, 3000.0, 3200.0, 1250.0, 1200.0]
-		, [2000.0, 200.0, 3000.0, 1200.0, 1000.0, 3200.0, 2750.0, 1200.0]
-		, [500.0, 2700.0, 1000.0, 3700.0, 2000.0, 3200.0, 1000.0, 3575.0]
-		, [2000.0, 3200.0, 3000.0, 3700.0, 3500.0, 2700.0, 3000.0, 3575.0]
-		] 
-
-		if not white:
-			polygons = self.rotate_object_180(polygons)
-
-		# convert proportions to coordinates
-		counter = 1
-		for polygon in polygons[1:]:
-			polygons[counter] = self.get_actual_coords(x, y, polygons[0][0], polygon, 4)
-			counter += 1
-
-		#draw the actual shapes
-		counter = 1
-		for polygon in polygons[1:]:
-			if counter > 4:
-				fill_color = bg_color
-			else: 
-				fill_color = piece_color
-
-			self.board_display.create_polygon(polygon[0], polygon[1], polygon[2], polygon[3], polygon[4], polygon[5], polygon[6], polygon[7], outline = piece_color, fill = fill_color)
-
-			counter += 1
-
-	def draw_rook(self, x, y, white):
-
-		if white:
-			piece_color = '#ddd'
-		else:
-			piece_color = '#222'
-
-		bg_color = self.color
-
-		# define shapes as proportions [[denominator], [xnum1, ynum1, ... , xnumn, ynumn], [shape2], ..., [shapen]]
-
-		colored_squares = [
-			[360.0]
-			#top
-			, [161.0, 9.0, 199.0, 47.0]
-			, [123.0, 47.0, 161.0, 85.0]
-			, [199.0, 47.0, 237.0, 85.0]
-			, [161.0, 85.0, 199.0, 123.0]
-
-			# left
-			, [9.0, 161.0, 47.0, 199.0]
-			, [47.0, 123.0, 85.0, 161.0]
-			, [47.0, 199.0, 85.0, 237.0]
-			, [85.0, 161.0, 123.0, 199.0]
-			
-			#bottom
-			, [161.0, 351.0, 199.0, 313.0]
-			, [123.0, 313.0, 161.0, 275.0]
-			, [199.0, 313.0, 237.0, 275.0]
-			, [161.0, 275., 199.0, 237.0]
-			
-			#right
-			, [351.0, 161.0, 313.0, 199.0]
-			, [313.0, 123.0, 275.0, 161.0]
-			, [313.0, 199.0, 275.0, 237.0]
-			, [275.0, 161.0, 237.0, 199.0]
-			
-			#center
-			, [123.0, 123.0, 161.0, 161.0]
-			, [123.0, 199.0, 161.0, 237.0]
-			, [199.0, 123.0, 237.0, 161.0]
-			, [199.0, 199.0, 237.0, 237.0]
-			, [161.0, 161.0, 199.0, 199.0]
-			]
-
-		colored_square = [[] for i in range(len(colored_squares) - 1)]
-		counter = 0
-
-		# Convert proportions to coordinates
-		for square in colored_squares[1:]:
-			colored_square[counter] = self.get_actual_coords(x, y, colored_squares[0][0], square, 2)
-			counter += 1
-
-
-		#draw the actual shapes
-		for square in colored_square:
-			self.board_display.create_rectangle(square[0], square[1], square[2], square[3], outline = bg_color, fill = piece_color)
-
-	def draw_bishop(self, x, y, white):
-		if white:
-			piece_color = '#ccc'
-		else:
-			piece_color = '#333'
-
-		bg_color = self.color
-
-		# define shapes as proportions [[denominator], [xnum1, ynum1, ... , xnumn, ynumn], [shape2], ..., [shapen]]
-		triangles = [[1000], [50.0, 50.0, 500.0, 500.0, 414.0, 586.0], [950.0, 50.0, 500.0, 500.0, 414.0, 414.0]
-		, [50.0, 950.0, 500.0, 500.0, 586.0, 586.0], [950.0, 950.0, 500.0, 500.0, 586.0, 414.0]
-		, [50.0, 50.0, 500.0, 500.0, 586.0, 414.0], [950.0, 50.0, 500.0, 500.0, 586.0, 586.0]
-		, [50.0, 950.0, 500.0, 500.0, 414.0, 414.0], [950.0, 950.0, 500.0, 500.0, 414.0, 586.0]]
-
-		# convert proportions to coordinates
-		length = len(triangles) - 1
-		triangle = [[] for i in range(length)]
-		i = 0
-
-		while i < length:
-			triangle[i] = self.get_actual_coords(x, y, triangles[0][0], triangles[i + 1], 3)
-			i += 1
-
-		#draw the actual shapes
-		self.board_display.create_polygon(triangle[0][0], triangle[0][1], triangle[0][2], triangle[0][3], triangle[0][4], triangle[0][5], outline = bg_color, fill = piece_color)
-		self.board_display.create_polygon(triangle[1][0], triangle[1][1], triangle[1][2], triangle[1][3], triangle[1][4], triangle[1][5], outline = bg_color, fill = piece_color)
-		self.board_display.create_polygon(triangle[2][0], triangle[2][1], triangle[2][2], triangle[2][3], triangle[2][4], triangle[2][5], outline = bg_color, fill = piece_color)
-		self.board_display.create_polygon(triangle[3][0], triangle[3][1], triangle[3][2], triangle[3][3], triangle[3][4], triangle[3][5], outline = bg_color, fill = piece_color)
-
-		self.board_display.create_polygon(triangle[4][0], triangle[4][1], triangle[4][2], triangle[4][3], triangle[4][4], triangle[4][5], outline = bg_color, fill = piece_color)
-		self.board_display.create_polygon(triangle[5][0], triangle[5][1], triangle[5][2], triangle[5][3], triangle[5][4], triangle[5][5], outline = bg_color, fill = piece_color)
-		self.board_display.create_polygon(triangle[6][0], triangle[6][1], triangle[6][2], triangle[6][3], triangle[6][4], triangle[6][5], outline = bg_color, fill = piece_color)
-		self.board_display.create_polygon(triangle[7][0], triangle[7][1], triangle[7][2], triangle[7][3], triangle[7][4], triangle[7][5], outline = bg_color, fill = piece_color)
-
-	def draw_queen(self, x, y, white):
-
-		if white:
-			piece_color = '#eee'
-		else:
-			piece_color = '#111'
-
-		bg_color = self.color
-
-		# define shapes as proportions [[denominator], [xnum1, ynum1, ... , xnumn, ynumn], [shape2], ..., [shapen]]
-		polygons = [
-		[2000.0]
-		, [250.0, 250.0, 500.0, 625.0, 1000.0, 1000.0, 500.0, 563.0]
-		, [250.0, 250.0, 563.0, 500.0, 1000.0, 1000.0, 625.0, 500.0]
-		, [1000.0, 0.0, 750.0, 500.0, 1000.0, 1000.0, 825.0, 500.0]
-		, [1000.0, 0.0, 932.0, 500.0, 1000.0, 1000.0, 1068.0, 500.0]
-		, [1000.0, 0.0, 1175.0, 500.0, 1000.0, 1000.0, 1250.0, 500.0]
-		, [1750.0, 250.0, 1375.0, 500.0, 1000.0, 1000.0, 1437.0, 500.0]
-		, [1750.0, 250.0, 1500.0, 625.0, 1000.0, 1000.0, 1500.0, 563.0]
-		, [2000.0, 1000.0, 1500.0, 750.0, 1000.0, 1000.0, 1500.0, 825.0]
-		, [2000.0, 1000.0, 1500.0, 932.0, 1000.0, 1000.0, 1500.0, 1068.0]
-		, [2000.0, 1000.0, 1500.0, 1175.0, 1000.0, 1000.0, 1500.0, 1250.0]
-		, [1750.0, 1750.0, 1500.0, 1375.0, 1000.0, 1000.0, 1500.0, 1437.0]
-		, [1750.0, 1750.0, 1437.0, 1500.0, 1000.0, 1000.0, 1375.0, 1500.0]
-		, [1000.0, 2000.0, 1250.0, 1500.0, 1000.0, 1000.0, 1175.0, 1500.0]
-		, [1000.0, 2000.0, 1068.0, 1500.0, 1000.0, 1000.0, 932.0, 1500.0]
-		, [1000.0, 2000.0, 825.0, 1500.0, 1000.0, 1000.0, 750.0, 1500.0]
-		, [250.0, 1750.0, 625.0, 1500.0, 1000.0, 1000.0, 563.0, 1500.0]
-		, [259.0, 1750.0, 500.0, 1375.0, 1000.0, 1000.0, 500.0, 1437.0]
-		, [0.0, 1000.0, 500.0, 1250.0, 1000.0, 1000.0, 500.0, 1175.0]
-		, [0.0, 1000.0, 500.0, 1068.0, 1000.0, 1000.0, 500.0, 932.0]
-		, [0.0, 1000.0, 500.0, 825.0, 1000.0, 1000.0, 500.0, 750.0]
-		]
-
-		# convert proportions to coordinates
-		counter = 1
-		for polygon in polygons[1:]:
-			polygons[counter] = self.get_actual_coords(x, y, polygons[0][0], polygon, 4)
-			counter += 1
-
-		#draw the actual shapes
-		for polygon in polygons[1:]:
-			self.board_display.create_polygon(polygon[0], polygon[1], polygon[2], polygon[3], polygon[4], polygon[5], polygon[6], polygon[7], outline = piece_color, fill = piece_color)
-
-	def draw_king (self, x, y, white):
-		bg_color = self.color
-
-		if white:
-			piece_color = '#fff'
-		else:
-			piece_color = '#000'
-
-		# define shapes as proportions [[denominator], [xnum1, ynum1, ... , xnumn, ynumn], [shape2], ..., [shapen]]
-		ups_or_downs = [
-		[4000.0]
-		, [1000.0, 30.0, 937.0, 500.0, 1000.0, 1000.0, 1063.0, 500.0]
-		, [2000.0, 30.0, 1937.0, 500.0, 2000.0, 1000.0, 2063.0, 500.0]
-		, [3000.0, 30.0, 2937.0, 500.0, 3000.0, 1000.0, 3063.0, 500.0]
-
-		, [30.0, 1000.0, 500.0, 937.0, 1000.0, 1000.0, 500.0, 1063.0]
-		, [1000.0, 1000.0, 1500.0, 937.0, 2000.0, 1000.0, 1500.0, 1063.0]
-		, [2000.0, 1000.0, 2500.0, 937.0, 3000.0, 1000.0, 2500.0, 1063.0]
-		, [3000.0, 1000.0, 3500.0, 937.0, 3970.0, 1000.0, 3500.0, 1063.0]
-
-		, [1000.0, 1000.0, 937.0, 1500.0, 1000.0, 2000.0, 1063.0, 1500.0]
-		, [2000.0, 1000.0, 1937.0, 1500.0, 2000.0, 2000.0, 2063.0, 1500.0]
-		, [3000.0, 1000.0, 2937.0, 1500.0, 3000.0, 2000.0, 3063.0, 1500.0]
-
-		, [30.0, 2000.0, 500.0, 1937.0, 1000.0, 2000.0, 500.0, 2063.0]
-		, [1000.0, 2000.0, 1500.0, 1937.0, 2000.0, 2000.0, 1500.0, 2063.0]
-		, [2000.0, 2000.0, 2500.0, 1937.0, 3000.0, 2000.0, 2500.0, 2063.0]
-		, [3000.0, 2000.0, 3500.0, 1937.0, 3970.0, 2000.0, 3500.0, 2063.0]
-
-		, [1000.0, 2000.0, 937.0, 2500.0, 1000.0, 3000.0, 1063.0, 2500.0]
-		, [2000.0, 2000.0, 1937.0, 2500.0, 2000.0, 3000.0, 2063.0, 2500.0]
-		, [3000.0, 2000.0, 2937.0, 2500.0, 3000.0, 3000.0, 3063.0, 2500.0]
-
-		, [30.0, 3000.0, 500.0, 2937.0, 1000.0, 3000.0, 500.0, 3063.0]
-		, [1000.0, 3000.0, 1500.0, 2937.0, 2000.0, 3000.0, 1500.0, 3063.0]
-		, [2000.0, 3000.0, 2500.0, 2937.0, 3000.0, 3000.0, 2500.0, 3063.0]
-		, [3000.0, 3000.0, 3500.0, 2937.0, 3970.0, 3000.0, 3500.0, 3063.0]
-
-		, [1000.0, 3000.0, 937.0, 3500.0, 1000.0, 3970.0, 1063.0, 3500.0]
-		, [2000.0, 3000.0, 1937.0, 3500.0, 2000.0, 3970.0, 2063.0, 3500.0]
-		, [3000.0, 3000.0, 2937.0, 3500.0, 3000.0, 3970.0, 3063.0, 3500.0]
-		]
-
-		diagonals = [
-		[4000.0]
-		, [30.0, 30.0, 400.0, 500.0, 30.0, 1000.0, 500.0, 600.0, 1000.0, 1000.0, 600.0, 500.0, 1000.0, 30.0, 500.0, 400.0]
-		, [1000.0, 30.0, 1400.0, 500.0, 1000.0, 1000.0, 1500.0, 600.0, 2000.0, 1000.0, 1600.0, 500.0, 2000.0, 30.0, 1500.0, 400.0]
-		, [2000.0, 30.0, 2400.0, 500.0, 2000.0, 1000.0, 2500.0, 600.0, 3000.0, 1000.0, 2600.0, 500.0, 3000.0, 30.0, 2500.0, 400.0]
-		, [3000.0, 30.0, 3400.0, 500.0, 3000.0, 1000.0, 3500.0, 600.0, 3970.0, 1000.0, 3600.0, 500.0, 3970.0, 30.0, 3500.0, 400.0]
-
-		, [30.0, 1000.0, 400.0, 1500.0, 30.0, 2000.0, 500.0, 1600.0, 1000.0, 2000.0, 600.0, 1500.0, 1000.0, 1000.0, 500.0, 1400.0]
-		, [1000.0, 1000.0, 1400.0, 1500.0, 1000.0, 2000.0, 1500.0, 1600.0, 2000.0, 2000.0, 1600.0, 1500.0, 2000.0, 1000.0, 1500.0, 1400.0]
-		, [2000.0, 1000.0, 2400.0, 1500.0, 2000.0, 2000.0, 2500.0, 1600.0, 3000.0, 2000.0, 2600.0, 1500.0, 3000.0, 1000.0, 2500.0, 1400.0]
-		, [3000.0, 1000.0, 3400.0, 1500.0, 3000.0, 2000.0, 3500.0, 1600.0, 3970.0, 2000.0, 3600.0, 1500.0, 3970.0, 1000.0, 3500.0, 1400.0]
-
-		, [30.0, 2000.0, 400.0, 2500.0, 30.0, 3000.0, 500.0, 2600.0, 1000.0, 3000.0, 600.0, 2500.0, 1000.0, 2000.0, 500.0, 2400.0]
-		, [1000.0, 2000.0, 1400.0, 2500.0, 1000.0, 3000.0, 1500.0, 2600.0, 2000.0, 3000.0, 1600.0, 2500.0, 2000.0, 2000.0, 1500.0, 2400.0]
-		, [2000.0, 2000.0, 2400.0, 2500.0, 2000.0, 3000.0, 2500.0, 2600.0, 3000.0, 3000.0, 2600.0, 2500.0, 3000.0, 2000.0, 2500.0, 2400.0]
-		, [3000.0, 2000.0, 3400.0, 2500.0, 3000.0, 3000.0, 3500.0, 2600.0, 3970.0, 3000.0, 3600.0, 2500.0, 3970.0, 2000.0, 3500.0, 2400.0]
-
-		, [30.0, 3000.0, 400.0, 3500.0, 30.0, 3970.0, 500.0, 3600.0, 1000.0, 3970.0, 600.0, 3500.0, 1000.0, 3000.0, 500.0, 3400.0]
-		, [1000.0, 3000.0, 1400.0, 3500.0, 1000.0, 3970.0, 1500.0, 3600.0, 2000.0, 3970.0, 1600.0, 3500.0, 2000.0, 3000.0, 1500.0, 3400.0]
-		, [2000.0, 3000.0, 2400.0, 3500.0, 2000.0, 3970.0, 2500.0, 3600.0, 3000.0, 3970.0, 2600.0, 3500.0, 3000.0, 3000.0, 2500.0, 3400.0]
-		, [3000.0, 3000.0, 3400.0, 3500.0, 3000.0, 3970.0, 3500.0, 3600.0, 3970.0, 3970.0, 3600.0, 3500.0, 3970.0, 3000.0, 3500.0, 3400.0]
-		]
-
-		# convert proportions to coordinates
-		counter = 1
-		for up_or_down in ups_or_downs[1:]:
-			ups_or_downs[counter] = self.get_actual_coords(x, y, ups_or_downs[0][0], up_or_down, 4)
-			counter += 1
-
-		counter = 1
-		for diagonal in diagonals[1:]:
-			diagonals[counter] = self.get_actual_coords(x, y, diagonals[0][0], diagonal, 8)
-			counter += 1
-
-		#draw the actual shapes
-		counter = 1
-		for up_or_down in ups_or_downs[1:]:
-			if counter == 1 or counter == 3 or counter == 4 or counter == 7 or counter == 9 or counter == 12 or counter == 13 or counter == 16 or counter == 18 or counter == 21 or counter == 22 or counter == 24:
-				fill_color = bg_color
-			else:
-				fill_color = piece_color
-
-			self.board_display.create_polygon(up_or_down[0], up_or_down[1], up_or_down[2], up_or_down[3], up_or_down[4], up_or_down[5], up_or_down[6], up_or_down[7], outline = piece_color, fill = fill_color)
-			counter += 1
-
-		counter = 1
-		for diagonal in diagonals[1:]:
-			if counter == 1 or counter == 4 or counter == 6 or counter == 7 or counter == 10 or counter == 11 or counter == 13 or counter == 16:
-				fill_color = piece_color
-			else:
-				fill_color = bg_color
-
-			self.board_display.create_polygon(
-				diagonal[0], diagonal[1], diagonal[2], diagonal[3], diagonal[4], diagonal[5]
-				, diagonal[6], diagonal[7], diagonal[8], diagonal[9], diagonal[10], diagonal[11]
-				, diagonal[12], diagonal[13], diagonal[14], diagonal[15], outline = piece_color, fill = fill_color)
-
-			counter += 1
-
-class Board():
-	def __init__(self):
-		self.nodes = 0
-
-		# Piece variables
-		self.piece_indexes = [1<<x for x in range(32)]
-		self.piece_values = {1<<0:1, 1<<1:1, 1<<2:1, 1<<3:1, 1<<4:1, 1<<5:1, 1<<6:1, 1<<7:1, 1<<8:-1, 1<<9:-1, 1<<10:-1, 1<<11:-1, 1<<12:-1, 1<<13:-1, 1<<14:-1, 1<<15:-1, 1<<16:5, 1<<17:5, 1<<18:-5, 1<<19:-5, 1<<20:3, 1<<21:3, 1<<22:-3, 1<<23:-3, 1<<24:3, 1<<25:3, 1<<26:-3, 1<<27:-3, 1<<28: 9, 1<<29:-9, 1<<30:10000, 1<<31:-10000}
-
-		self.extra_white_indexes = [1<<32, 1<<33, 1<<34, 1<<35, 1<<36, 1<<37, 1<<38, 1<<39]
-		self.extra_black_indexes = [1<<40, 1<<41, 1<<42, 1<<43, 1<<44, 1<<45, 1<<46, 1<<47]
-
-	def get_position(self, squares):
-		#logger.log('board.get_position')
-
-		position = [0 for i in range(64)]
-
-		for i in range(64):
-			position[i] = squares[i].occupied_by
-
-		return position
-
-	def evaluate_position(self, position):
-		#logger.log('board.evaluate_position')
-
-		position_value = 0
-
-		for i in range(64):
-			if position[i] != 0:
-				position_value += self.piece_values[position[i]]
-
-		self.nodes += 1
-
-		return position_value
-
-class Square():
-	def __init__(self, i, board):
-		self.x = i // 8
-		self.y = i % 8
-		self.board = board
-		self.bitwise_position = i
-		self.occupied_by = 0
-
-		#Diagonal bitshift variables
-		self.a1_h8_bitshift_amount = 0
-		self.a1_h8_length = 0
-		self.a1_h8_position = 0
-
-		self.a8_h1_bitshift_amount = 0
-		self.a8_h1_length = 0
-		self.a8_h1_position = 0
-
-		#Initialize some variables.
-		self.calculate_a1_h8_diagonal_bitboard_variables()
-		self.calculate_a8_h1_diagonal_bitboard_variables()
-
-	def calculate_a1_h8_diagonal_bitboard_variables(self):
-		if self.x - self.y == -7:
-			self.a1_h8_bitshift_amount = 7
-			self.a1_h8_length = 0b1
-			self.a1_h8_position = self.x
-		elif self.x - self.y == -6:
-			self.a1_h8_bitshift_amount = 6
-			self.a1_h8_length = 0b1000000001
-			self.a1_h8_position = self.x
-		elif self.x - self.y == -5:
-			self.a1_h8_bitshift_amount = 5
-			self.a1_h8_length = 0b1000000001000000001
-			self.a1_h8_position = self.x
-		elif self.x - self.y == -4:
-			self.a1_h8_bitshift_amount = 4
-			self.a1_h8_length = 0b1000000001000000001000000001
-			self.a1_h8_position = self.x
-		elif self.x - self.y == -3:
-			self.a1_h8_bitshift_amount = 3
-			self.a1_h8_length = 0b1000000001000000001000000001000000001
-			self.a1_h8_position = self.x
-		elif self.x - self.y == -2:
-			self.a1_h8_bitshift_amount = 2
-			self.a1_h8_length = 0b1000000001000000001000000001000000001000000001
-			self.a1_h8_position = self.x
-		elif self.x - self.y == -1:
-			self.a1_h8_bitshift_amount = 1
-			self.a1_h8_length = 0b1000000001000000001000000001000000001000000001000000001
-			self.a1_h8_position = self.x
-		elif self.x - self.y == 0:
-			self.a1_h8_bitshift_amount = 0
-			self.a1_h8_length = 0b1000000001000000001000000001000000001000000001000000001000000001
-			self.a1_h8_position = self.x
-		elif self.x - self.y == 1:
-			self.a1_h8_bitshift_amount = 8
-			self.a1_h8_length = 0b1000000001000000001000000001000000001000000001000000001
-			self.a1_h8_position = self.y
-		elif self.x - self.y == 2:
-			self.a1_h8_bitshift_amount = 16
-			self.a1_h8_length = 0b1000000001000000001000000001000000001000000001
-			self.a1_h8_position = self.y
-		elif self.x - self.y == 3:
-			self.a1_h8_bitshift_amount = 24
-			self.a1_h8_length = 0b1000000001000000001000000001000000001
-			self.a1_h8_position = self.y
-		elif self.x - self.y == 4:
-			self.a1_h8_bitshift_amount = 32
-			self.a1_h8_length = 0b1000000001000000001000000001
-			self.a1_h8_position = self.y
-		elif self.x - self.y == 5:
-			self.a1_h8_bitshift_amount = 40
-			self.a1_h8_length = 0b1000000001000000001
-			self.a1_h8_position = self.y
-		elif self.x - self.y == 6:
-			self.a1_h8_bitshift_amount = 48
-			self.a1_h8_length = 0b1000000001
-			self.a1_h8_position = self.y
-		elif self.x - self.y == 7:
-			self.a1_h8_bitshift_amount = 56
-			self.a1_h8_length = 0b1
-			self.a1_h8_position = self.y
-
-	def calculate_a8_h1_diagonal_bitboard_variables(self):
-		if self.x + self.y == 0:
-			self.a8_h1_bitshift_amount = -7
-			self.a8_h1_length = 0b10000000
-			self.a8_h1_position = self.x
-		elif self.x + self.y == 1:
-			self.a8_h1_bitshift_amount = -6
-			self.a8_h1_length = 0b100000010000000
-			self.a8_h1_position = self.x
-		elif self.x + self.y == 2:
-			self.a8_h1_bitshift_amount = -5
-			self.a8_h1_length = 0b1000000100000010000000
-			self.a8_h1_position = self.x
-		elif self.x + self.y == 3:
-			self.a8_h1_bitshift_amount = -4
-			self.a8_h1_length = 0b10000001000000100000010000000
-			self.a8_h1_position = self.x
-		elif self.x + self.y == 4:
-			self.a8_h1_bitshift_amount = -3
-			self.a8_h1_length = 0b100000010000001000000100000010000000
-			self.a8_h1_position = self.x
-		elif self.x + self.y == 5:
-			self.a8_h1_bitshift_amount = -2
-			self.a8_h1_length = 0b1000000100000010000001000000100000010000000
-			self.a8_h1_position = self.x
-		elif self.x + self.y == 6:
-			self.a8_h1_bitshift_amount = -1
-			self.a8_h1_length = 0b10000001000000100000010000001000000100000010000000
-			self.a8_h1_position = self.x
-		elif self.x + self.y == 7:
-			self.a8_h1_bitshift_amount = 0
-			self.a8_h1_length = 0b100000010000001000000100000010000001000000100000010000000
-			self.a8_h1_position = self.x
-		elif self.x + self.y == 8:
-			self.a8_h1_bitshift_amount = 8
-			self.a8_h1_length = 0b10000001000000100000010000001000000100000010000000
-			self.a8_h1_position = 7 - self.y
-		elif self.x + self.y == 9:
-			self.a8_h1_bitshift_amount = 16
-			self.a8_h1_length = 0b1000000100000010000001000000100000010000000
-			self.a8_h1_position = 7 - self.y
-		elif self.x + self.y == 10:
-			self.a8_h1_bitshift_amount = 24
-			self.a8_h1_length = 0b100000010000001000000100000010000000
-			self.a8_h1_position = 7 - self.y
-		elif self.x + self.y == 11:
-			self.a8_h1_bitshift_amount = 32
-			self.a8_h1_length = 0b10000001000000100000010000000
-			self.a8_h1_position = 7 - self.y
-		elif self.x + self.y == 12:
-			self.a8_h1_bitshift_amount = 40
-			self.a8_h1_length = 0b1000000100000010000000
-			self.a8_h1_position = 7 - self.y
-		elif self.x + self.y == 13:
-			self.a8_h1_bitshift_amount = 48
-			self.a8_h1_length = 0b100000010000000
-			self.a8_h1_position = 7 - self.y
-		elif self.x + self.y == 14:
-			self.a8_h1_bitshift_amount = 56
-			self.a8_h1_length = 0b10000000
-			self.a8_h1_position = 7 - self.y
 
 class WhitePiece():
 	def __init__(self, x, y, white, index, piece_type):
+		global squares
+
 		self.eightx_y = 8*x+y
 		self.white = white
 		self.moves = 0
 		self.index = index
 		self.type = piece_type
 
-		squares[self.eightx_y].occupied_by = self.index
+		squares[self.eightx_y] = self.index
 
 	def move_piece(self, eightx_y):
 		global en_passant_pieces
@@ -637,6 +31,7 @@ class WhitePiece():
 		global last_move_destination_eightx_y
 		global halfmove_clock
 		global all_white_positions
+		global squares
 
 		# If it's not a pawn, increment the halfmove clock
 		if self.type != 5:
@@ -648,8 +43,8 @@ class WhitePiece():
 		self.leave_square()
 
 		# Kill the opposing piece, if any
-		if squares[eightx_y].occupied_by != 0:
-			pieces[squares[eightx_y].occupied_by].leave_square(True)
+		if squares[eightx_y] != 0:
+			pieces[squares[eightx_y]].leave_square(True)
 
 		# Reset en passant variables
 		en_passant_pieces = []
@@ -664,15 +59,16 @@ class WhitePiece():
 		self.eightx_y = eightx_y
 
 		#update occupied status of target square
-		squares[eightx_y].occupied_by = self.index
+		squares[eightx_y] = self.index
 
 	# This method is overwritten by the white rook class, to deal with castling.
 	def leave_square(self, captured = False):
 		global active_white_pieces
 		global halfmove_clock
 		global all_white_positions
+		global squares
 
-		squares[self.eightx_y].occupied_by = 0
+		squares[self.eightx_y] = 0
 
 		all_white_positions -= 1 << self.eightx_y
 		if captured:
@@ -709,9 +105,9 @@ class WhitePiece():
 	def calculate_a1_h8_diagonal_moves(self):
 		global all_defended_white_pieces
 
-		bitshift_amount = squares[self.eightx_y].a1_h8_bitshift_amount
-		position = squares[self.eightx_y].a1_h8_position
-		length = squares[self.eightx_y].a1_h8_length
+		bitshift_amount = a1_h8_bitshift_amounts[self.eightx_y]
+		position = a1_h8_positions[self.eightx_y]
+		length = a1_h8_lengths[self.eightx_y]
 
 		occupancy = (all_piece_positions >> bitshift_amount) & 0x8040201008040201
 		potential_moves = (a1_h8_diagonal_bitboards[occupancy][position] & length) << bitshift_amount
@@ -722,9 +118,9 @@ class WhitePiece():
 	def calculate_a8_h1_diagonal_moves(self):
 		global all_defended_white_pieces
 
-		bitshift_amount = squares[self.eightx_y].a8_h1_bitshift_amount
-		position = squares[self.eightx_y].a8_h1_position
-		length = squares[self.eightx_y].a8_h1_length
+		bitshift_amount = a8_h1_bitshift_amounts[self.eightx_y]
+		position = a8_h1_positions[self.eightx_y]
+		length = a8_h1_lengths[self.eightx_y]
 
 		if bitshift_amount < 0:
 			occupancy = (all_piece_positions << abs(bitshift_amount)) & 0x102040810204080
@@ -738,13 +134,14 @@ class WhitePiece():
 
 class BlackPiece():
 	def __init__(self, x, y, white, index, piece_type):
+		global squares
 		self.eightx_y = 8*x+y
 		self.white = white
 		self.moves = 0
 		self.index = index
 		self.type = piece_type
 
-		squares[self.eightx_y].occupied_by = self.index
+		squares[self.eightx_y] = self.index
 
 	def move_piece(self, eightx_y):
 		global en_passant_pieces
@@ -754,6 +151,7 @@ class BlackPiece():
 		global last_move_destination_eightx_y
 		global halfmove_clock
 		global all_black_positions
+		global squares
 
 		# If it's not a pawn, increment the halfmove clock
 		if self.type != 5:
@@ -765,8 +163,8 @@ class BlackPiece():
 		self.leave_square()
 
 		# Kill the opposing piece, if any
-		if squares[eightx_y].occupied_by != 0:
-			pieces[squares[eightx_y].occupied_by].leave_square(True)
+		if squares[eightx_y] != 0:
+			pieces[squares[eightx_y]].leave_square(True)
 
 		# Reset en passant variables
 		en_passant_pieces = []
@@ -781,15 +179,16 @@ class BlackPiece():
 		self.eightx_y = eightx_y
 
 		#update occupied status of target square
-		squares[eightx_y].occupied_by = self.index
+		squares[eightx_y] = self.index
 
 	# This method is overwritten by the black rook class, to deal with castling.
 	def leave_square(self, captured = False):
 		global active_black_pieces
 		global halfmove_clock
 		global all_black_positions
+		global squares
 		
-		squares[self.eightx_y].occupied_by = 0
+		squares[self.eightx_y] = 0
 
 		all_black_positions -= 1 << self.eightx_y
 		if captured:
@@ -826,9 +225,9 @@ class BlackPiece():
 	def calculate_a1_h8_diagonal_moves(self):
 		global all_defended_black_pieces
 
-		bitshift_amount = squares[self.eightx_y].a1_h8_bitshift_amount
-		position = squares[self.eightx_y].a1_h8_position
-		length = squares[self.eightx_y].a1_h8_length
+		bitshift_amount = a1_h8_bitshift_amounts[self.eightx_y]
+		position = a1_h8_positions[self.eightx_y]
+		length = a1_h8_lengths[self.eightx_y]
 
 		occupancy = (all_piece_positions >> bitshift_amount) & 0x8040201008040201
 		potential_moves = (a1_h8_diagonal_bitboards[occupancy][position] & length) << bitshift_amount
@@ -839,9 +238,9 @@ class BlackPiece():
 	def calculate_a8_h1_diagonal_moves(self):
 		global all_defended_black_pieces
 
-		bitshift_amount = squares[self.eightx_y].a8_h1_bitshift_amount
-		position = squares[self.eightx_y].a8_h1_position
-		length = squares[self.eightx_y].a8_h1_length
+		bitshift_amount = a8_h1_bitshift_amounts[self.eightx_y]
+		position = a8_h1_positions[self.eightx_y]
+		length = a8_h1_lengths[self.eightx_y]
 
 		if bitshift_amount < 0:
 			occupancy = (all_piece_positions << abs(bitshift_amount)) & 0x102040810204080
@@ -959,9 +358,9 @@ class WhiteKing(WhitePiece):
 							# If there is more than one friendly piece in the intervening squares, there is no pin.
 							potential_pinned = all_white_positions & intervening_squares
 							
-							if potential_pinned != 0 and math.log(potential_pinned, 2) % 1 == 0:
+							if potential_pinned != 0 and potential_pinned in bit_significance_mapping:
 
-								pinned_piece = squares[int(math.log(potential_pinned, 2))].occupied_by
+								pinned_piece = squares[bit_significance_mapping[potential_pinned]]
 								pinned_white_pieces.append(dict({"pinned_piece": pinned_piece, "pinning_piece": pinning_piece}))
 			
 			# Move to the next active pinner
@@ -1073,9 +472,9 @@ class BlackKing(BlackPiece):
 							# If there is more than one friendly piece in the intervening squares, there is no pin.
 							potential_pinned = all_black_positions & intervening_squares
 							
-							if potential_pinned != 0 and math.log(potential_pinned, 2) % 1 == 0:
+							if potential_pinned != 0 and potential_pinned in bit_significance_mapping:
 
-								pinned_piece = squares[int(math.log(potential_pinned, 2))].occupied_by
+								pinned_piece = squares[bit_significance_mapping[potential_pinned]]
 								pinned_black_pieces.append(dict({"pinned_piece": pinned_piece, "pinning_piece": pinning_piece}))
 
 			# Move to the next active white pinner
@@ -1244,7 +643,7 @@ class WhitePawn(WhitePiece):
 			self.promote_to_queen(x, y)
 
 		# Reset the halfmove clock
-		board.halfmove_clock = 0
+		halfmove_clock = 0
 
 	def calculate_moves(self):
 		global all_white_moves
@@ -1275,8 +674,8 @@ class WhitePawn(WhitePiece):
 		highest_key = 0
 		for key in pieces:
 
-			if int(math.log(key, 2)) > 30 and int(math.log(key, 2)) > highest_key:
-				highest_key = int(math.log(key, 2))
+			if bit_significance_mapping[key] > 30 and bit_significance_mapping[key] > highest_key:
+				highest_key = bit_significance_mapping[key]
 
 		# Add a new white queen to the pieces array
 		pieces[1<<(highest_key + 1)] = WhiteQueen(x, y, True, 1<<(highest_key + 1), 1)
@@ -1337,8 +736,8 @@ class BlackPawn(BlackPiece):
 		highest_key = 0
 		for key in pieces:
 
-			if int(math.log(key, 2)) > 30 and int(math.log(key, 2)) > highest_key:
-				highest_key = int(math.log(key, 2))
+			if bit_significance_mapping[key] > 30 and bit_significance_mapping[key] > highest_key:
+				highest_key = bit_significance_mapping[key]
 
 		# Add a new black queen to the pieces array
 		pieces[1<<(highest_key + 1)] = BlackQueen(x, y, False, 1<<(highest_key + 1), 1)
@@ -1350,7 +749,7 @@ class BlackPawn(BlackPiece):
 		black_pinners.add(1<<(highest_key + 1))
 
 class PositionMemento():
-	def store_current_position(self, position):
+	def __init__(self):
 		# Store last-move variables
 		self.former_white_to_move = white_to_move
 		self.former_last_move_piece_type = last_move_piece_type
@@ -1374,7 +773,7 @@ class PositionMemento():
 		self.former_active_black_pieces = active_black_pieces
 
 		# Store position
-		self.position = position
+		self.position = squares[:]
 
 	def restore_current_position(self):
 		global active_white_pieces
@@ -1388,6 +787,7 @@ class PositionMemento():
 		global all_white_positions
 		global all_black_positions
 		global pieces
+		global squares
 
 		# Restore last-move variables
 		white_to_move = self.former_white_to_move
@@ -1410,8 +810,7 @@ class PositionMemento():
 		active_white_pieces = self.former_active_white_pieces
 		active_black_pieces = self.former_active_black_pieces
 
-		# Return the position
-		return self.position
+		squares = self.position[:]
 
 # **************************************************************************
 # ********** GLOBAL VARIABLES (FORMER GLOBALS FILE.PY) *********************
@@ -1431,8 +830,7 @@ board_display = BoardDisplay(app)
 square_display = [[SquareDisplay(x, y, board_display) for y in range(8)] for x in range(8)]
 
 # Create the main data structures for the engine
-board = Board()
-squares = [Square(i, board) for i in range(64)] # i = 8x+y
+squares = [0 for i in range(64)] # i = 8x+y
 
 # Create the pieces dictionary
 piece_indexes = [2**x for x in range(32)]
@@ -1480,6 +878,11 @@ pinned_black_pieces = []
 halfmove_clock = 0
 fullmove_number = 1
 
+# This is a way to get the significance of numbers that are powers of 2. Useful for translating piece indexes
+bit_significance_mapping = {}
+for i in range(64):
+	bit_significance_mapping[1<<i] = i
+
 ###### BOARD STATE BITBOARDS ######
 all_white_moves = 0
 all_black_moves = 0
@@ -1501,12 +904,16 @@ unrealized_black_pawn_attacks = 0
 third_rank_shifted_to_fourth = 0 # For use in calculating white pawns' first moves
 sixth_rank_shifted_to_fifth = 0 # For use in calculating black pawns' first moves
 
+piece_values = {0:0,1<<0:1, 1<<1:1, 1<<2:1, 1<<3:1, 1<<4:1, 1<<5:1, 1<<6:1, 1<<7:1, 1<<8:-1, 1<<9:-1, 1<<10:-1, 1<<11:-1, 1<<12:-1, 1<<13:-1, 1<<14:-1, 1<<15:-1, 1<<16:5, 1<<17:5, 1<<18:-5, 1<<19:-5, 1<<20:3, 1<<21:3, 1<<22:-3, 1<<23:-3, 1<<24:3, 1<<25:3, 1<<26:-3, 1<<27:-3, 1<<28: 9, 1<<29:-9, 1<<30:10000, 1<<31:-10000}
+
+nodes = 0
+
 # **************************************************************************
 # ************************** USER INTERFACE ********************************
 # **************************************************************************
 
 def handle_click (event):
-	#logger.log('handle_click')
+	global nodes
 
 	# find coordinates of click (gives x, y coords)
 	x = (event.x - board_display.x_start) // board_display.square_size
@@ -1515,16 +922,14 @@ def handle_click (event):
 
 	# If nothing is selected
 	if board_display.selected == 0:
-		if squares[eightx_y].occupied_by != 0 and pieces[squares[eightx_y].occupied_by].white == white_to_move:
+		if squares[eightx_y] != 0 and pieces[squares[eightx_y]].white == white_to_move:
 			select_piece(x, y, eightx_y)
 
 	# If a piece is selected and the user has made a legal move
 	elif pieces[board_display.selected].moves & (1 << eightx_y) > 0:
 		move_selected_piece(eightx_y)
 
-		position = board.get_position(squares)
-
-		generate_moves(position)
+		generate_moves()
 
 		# Let the computer play
 		if computer_plays == 'white' or computer_plays == 'black':
@@ -1532,14 +937,13 @@ def handle_click (event):
 			computer_move(computer_plays)
 			computer_end = logger.return_timestamp()
 
-			nps = board.nodes / ((computer_end - computer_start)/1000.0)
-			logger.log("nodes: " + str(board.nodes))
+			nps = nodes / ((computer_end - computer_start)/1000.0)
+			logger.log("nodes: " + str(nodes))
 			logger.log("nps: " + str(nps))
 			logger.log("************************************")
-			board.nodes = 0
+			nodes = 0
 
-			position = board.get_position(squares)
-			generate_moves(position)
+			generate_moves()
 
 	# If a piece is selected and the user has made a non-move click
 	else:
@@ -1555,10 +959,10 @@ def select_piece(x, y, eightx_y):
 		square_display[x][y].color = "#765"
 
 	square_display[x][y].color_square()
-	square_display[x][y].draw_piece(x, y, squares[eightx_y].occupied_by)
+	square_display[x][y].draw_piece(x, y, squares[eightx_y], pieces)
 
 	# Store which piece is selected, and which square has been highlighted
-	board_display.selected = squares[eightx_y].occupied_by
+	board_display.selected = squares[eightx_y]
 	board_display.highlighted_square = [x, y]
 
 def deselect_piece():
@@ -1573,7 +977,7 @@ def deselect_piece():
 		square_display[x][y].color = "#567"
 
 	square_display[x][y].color_square()
-	square_display[x][y].draw_piece(x, y, squares[8*x+y].occupied_by)
+	square_display[x][y].draw_piece(x, y, squares[8*x+y], pieces)
 	board_display.selected = 0
 	board_display.highlighted_square = []
 
@@ -1595,14 +999,13 @@ def move_selected_piece(eightx_y):
 	white_to_move = not white_to_move
 
 	# Recolor the origin square
-	new_position = board.get_position(squares)
-	board_display.render_position(new_position, square_display)
+	board_display.render_position(squares[:], square_display, pieces)
 
 # ****************************************************************************
 # ************************** MOVE GENERATION *********************************
 # ****************************************************************************
 
-def generate_moves(position):
+def generate_moves():
 	global checker_types
 	global checker_positions
 	global pinned_white_pieces
@@ -1824,7 +1227,7 @@ def calculate_check_moves(king):
 	for i in range(number_of_checkers):
 		# The checker_types array doesn't tie the position to the checker type.
 		checker_eightx_y = checker_positions[i]
-		checker_index = squares[checker_positions[i]].occupied_by
+		checker_index = squares[checker_positions[i]]
 		checker_type = pieces[checker_index].type
 
 		if checker_type in [1, 2, 3]:
@@ -1862,40 +1265,51 @@ def get_vector(origin, destination):
 		else:
 			return 7
 
-def reset_squares(position):
-	for i in range(64):
-			squares[i].occupied_by = position[i]
-
 def check_for_en_passant():
 	global en_passant_pieces
 	global en_passant_victim
 
 	if last_move_piece_type == 5:
 		if last_move_origin_eightx_y - last_move_destination_eightx_y == 2:
-			if last_move_origin_eightx_y > 7 and squares[last_move_destination_eightx_y - 8].occupied_by & 0b11111111 > 0:
-				en_passant_attacker = squares[last_move_destination_eightx_y - 8].occupied_by
+			if last_move_origin_eightx_y > 7 and squares[last_move_destination_eightx_y - 8] & 0b11111111 > 0:
+				en_passant_attacker = squares[last_move_destination_eightx_y - 8]
 				pieces[en_passant_attacker].moves += 1 << (last_move_destination_eightx_y + 1)
 				en_passant_pieces.append(en_passant_attacker)
-				en_passant_victim = squares[last_move_destination_eightx_y].occupied_by
+				en_passant_victim = squares[last_move_destination_eightx_y]
 
-			if last_move_origin_eightx_y < 56 and squares[last_move_destination_eightx_y + 8].occupied_by & 0b11111111 > 0:
-				en_passant_attacker = squares[last_move_destination_eightx_y + 8].occupied_by
+			if last_move_origin_eightx_y < 56 and squares[last_move_destination_eightx_y + 8] & 0b11111111 > 0:
+				en_passant_attacker = squares[last_move_destination_eightx_y + 8]
 				pieces[en_passant_attacker].moves += 1 << (last_move_destination_eightx_y + 1)
 				en_passant_pieces.append(en_passant_attacker)
-				en_passant_victim = squares[last_move_destination_eightx_y].occupied_by
+				en_passant_victim = squares[last_move_destination_eightx_y]
 
 		elif last_move_origin_eightx_y - last_move_destination_eightx_y == -2:
-			if last_move_origin_eightx_y > 7 and squares[last_move_destination_eightx_y - 8].occupied_by & 0b1111111100000000 > 0:
-				en_passant_attacker = squares[last_move_destination_eightx_y - 8].occupied_by
+			if last_move_origin_eightx_y > 7 and squares[last_move_destination_eightx_y - 8] & 0b1111111100000000 > 0:
+				en_passant_attacker = squares[last_move_destination_eightx_y - 8]
 				pieces[en_passant_attacker].moves += 1 << (last_move_destination_eightx_y - 1)
 				en_passant_pieces.append(en_passant_attacker)
-				en_passant_victim = squares[last_move_destination_eightx_y].occupied_by
+				en_passant_victim = squares[last_move_destination_eightx_y]
 
-			if last_move_origin_eightx_y < 56 and squares[last_move_destination_eightx_y + 8].occupied_by & 0b1111111100000000 > 0:
-				en_passant_attacker = squares[last_move_destination_eightx_y + 8].occupied_by
+			if last_move_origin_eightx_y < 56 and squares[last_move_destination_eightx_y + 8] & 0b1111111100000000 > 0:
+				en_passant_attacker = squares[last_move_destination_eightx_y + 8]
 				pieces[en_passant_attacker].moves += 1 << (last_move_destination_eightx_y - 1)
 				en_passant_pieces.append(en_passant_attacker)
-				en_passant_victim = squares[last_move_destination_eightx_y].occupied_by
+				en_passant_victim = squares[last_move_destination_eightx_y]
+
+# ****************************************************************************
+# ***************************** EVALUATION ***********************************
+# ****************************************************************************
+def evaluate_position():
+	global nodes
+
+	position_value = 0
+
+	for i in range(64):
+		position_value += piece_values[squares[i]]
+
+	nodes += 1
+
+	return position_value
 
 # ****************************************************************************
 # ******************************* SEARCH *************************************
@@ -1926,15 +1340,9 @@ def computer_move(computer_plays):
 	move_selected_piece(best_move)
 
 def calculate_white_move(depth, current_depth):
-	#logger.log('calculate_white_move')
-
 	# store the current position, as well as the last move variables (for en passant detection)
-	position = board.get_position(squares)
-
 	position_memento = PositionMemento()
-	position_memento.store_current_position(position)
-
-	generate_moves(position)
+	generate_moves()
 
 	# Loop through all pieces' moves
 	current_active_white_pieces = active_white_pieces
@@ -1952,7 +1360,7 @@ def calculate_white_move(depth, current_depth):
 
 			# Because of how negative numbers are stored, the bitwise and of a number and its negative will equal the smallest bit in the number.
 			move = piece_moves & -piece_moves
-			eightx_y = int(math.log(move, 2))
+			eightx_y = bit_significance_mapping[move]
 
 			# Make move and return value of board (without graphics)
 			pieces[piece].move_piece(eightx_y)
@@ -1961,8 +1369,7 @@ def calculate_white_move(depth, current_depth):
 			# Otherwise, call the move function of the opposing side. 
 			if current_depth == 0:
 				# Calculate the position of the board
-				position_to_consider = board.get_position(squares)
-				position_value = board.evaluate_position(position_to_consider)
+				position_value = evaluate_position()
 			else:
 				position_value = calculate_black_move(depth, current_depth - 1)
 
@@ -1973,9 +1380,8 @@ def calculate_white_move(depth, current_depth):
 				best_move_eightx_y = eightx_y
 		
 			# restore game state using Memento
-			restore_position = position_memento.restore_current_position()
-			reset_squares(restore_position)
-			generate_moves(restore_position)
+			position_memento.restore_current_position()
+			generate_moves()
 
 			# Update the piece_moves bitboard
 			piece_moves -= move
@@ -1998,15 +1404,9 @@ def calculate_white_move(depth, current_depth):
 			return {"best_move_piece": best_move_piece, "best_move": best_move_eightx_y}
 
 def calculate_black_move(depth, current_depth):
-	#logger.log('calculate_black_move')
-
 	# store the current position, as well as the last move variables (for en passant detection)
-	position = board.get_position(squares)
-
 	position_memento = PositionMemento()
-	position_memento.store_current_position(position)
-
-	generate_moves(position)
+	generate_moves()
 
 	# Loop through all pieces' moves
 	# (I'll need to generalize this for white or black)
@@ -2025,7 +1425,7 @@ def calculate_black_move(depth, current_depth):
 
 			# Because of how negative numbers are stored, the bitwise and of a number and its negative will equal the smallest bit in the number.
 			move = piece_moves & -piece_moves
-			eightx_y = int(math.log(move, 2))
+			eightx_y = bit_significance_mapping[move]
 
 			# Make move and return value of board (without graphics)
 			pieces[piece].move_piece(eightx_y)
@@ -2034,8 +1434,7 @@ def calculate_black_move(depth, current_depth):
 			# Otherwise, call the move function of the opposing side. 
 			if current_depth == 0:
 				# Calculate the position of the board
-				position_to_consider = board.get_position(squares)
-				position_value = board.evaluate_position(position_to_consider)
+				position_value = evaluate_position()
 			else:
 				position_value = calculate_white_move(depth, current_depth - 1)
 
@@ -2046,9 +1445,8 @@ def calculate_black_move(depth, current_depth):
 				best_move_eightx_y = eightx_y
 
 			# restore game state using Memento
-			restore_position = position_memento.restore_current_position()
-			reset_squares(restore_position)
-			generate_moves(restore_position)
+			position_memento.restore_current_position()
+			generate_moves()
 
 			# Update the piece_moves bitboard
 			piece_moves -= move
@@ -2125,14 +1523,12 @@ def initialize_with_start_position():
 	all_white_positions = 0x303030303030303
 	all_black_positions = 0xc0c0c0c0c0c0c0c0
 
-	# Get the position
-	start_position = board.get_position(squares)
-
 	# Generate the moves
-	generate_moves(start_position)
+	generate_moves()
 
 	# Display the board
-	board_display.render_position(start_position, square_display)
+
+	board_display.render_position(squares[:], square_display, pieces)
 
 def initialize_with_fen_position(fen_string):
 	global white_to_move
@@ -2144,6 +1540,7 @@ def initialize_with_fen_position(fen_string):
 	global fullmove_number
 	global all_white_positions
 	global all_black_positions
+	global all_piece_positions
 
 	# Split it into separate parts
 	fen_array = fen_string.split(' ')
@@ -2318,33 +1715,25 @@ def initialize_with_fen_position(fen_string):
 	# Manually set up a couple bitboards
 	for piece in pieces:
 		if pieces[piece].white:
-			all_white_positions += 1<<(8 * pieces[piece].eightx_y)
+			all_white_positions += 1 << pieces[piece].eightx_y
 		else:
-			all_black_positions += 1<<(8 * pieces[piece].eightx_y)
-
-	# Get the position
-	start_position = board.get_position(squares)
+			all_black_positions += 1 << pieces[piece].eightx_y
 
 	# Generate the moves
-	generate_moves(start_position)
+	generate_moves()
 
 	# Display the board
-	board_display.render_position(start_position, square_display)
+	board_display.render_position(squares[:], square_display, pieces)
 
 def calculate_white_perft(depth, current_depth):
+	global nodes
 	# store the current position, as well as the last move variables (for en passant detection)
 
 	if current_depth == 0:
-		board.nodes += 1
-	
+		nodes += 1	
 	else:
-
-		position = board.get_position(squares)
-
 		position_memento = PositionMemento()
-		position_memento.store_current_position(position, board, pieces)
-
-		generate_moves(position)
+		generate_moves()
 
 		# Loop through all pieces' moves
 		current_active_white_pieces = active_white_pieces
@@ -2358,7 +1747,7 @@ def calculate_white_perft(depth, current_depth):
 
 				# Because of how negative numbers are stored, the bitwise and of a number and its negative will equal the smallest bit in the number.
 				move = piece_moves & -piece_moves
-				eightx_y = int(math.log(move, 2))
+				eightx_y = bit_significance_mapping[move]
 
 				# Make move and return value of board (without graphics)
 				pieces[piece].move_piece(eightx_y)
@@ -2368,9 +1757,8 @@ def calculate_white_perft(depth, current_depth):
 				position_value = calculate_black_perft(depth, current_depth - 1)
 			
 				# restore game state using Memento
-				restore_position = position_memento.restore_current_position(board, pieces)
-				reset_squares(restore_position)
-				generate_moves(restore_position)
+				position_memento.restore_current_position()
+				generate_moves()
 
 				# Update the piece_moves bitboard
 				piece_moves -= move
@@ -2378,22 +1766,18 @@ def calculate_white_perft(depth, current_depth):
 			current_active_white_pieces -= piece
 
 	if depth == current_depth:
-		return board.nodes
+		return nodes
 
 def calculate_black_perft(depth, current_depth):
-	#logger.log('calculate_black_move')
+	global nodes
 
 	if current_depth == 0:
-		board.nodes += 1
+		nodes += 1
 
 	else:
 		# store the current position
-		position = board.get_position(squares)
-
 		position_memento = PositionMemento()
-		position_memento.store_current_position(position, board, pieces)
-
-		generate_moves(position)
+		generate_moves()
 
 		# Loop through all pieces' moves
 		current_active_black_pieces = active_black_pieces
@@ -2407,7 +1791,7 @@ def calculate_black_perft(depth, current_depth):
 
 				# Because of how negative numbers are stored, the bitwise and of a number and its negative will equal the smallest bit in the number.
 				move = piece_moves & -piece_moves
-				eightx_y = int(math.log(move, 2))
+				eightx_y = bit_significance_mapping[move]
 
 				# Make move and return value of board (without graphics)
 				pieces[piece].move_piece(eightx_y)
@@ -2417,9 +1801,8 @@ def calculate_black_perft(depth, current_depth):
 				position_value = calculate_white_perft(depth, current_depth - 1)
 
 				# restore game state using Memento
-				restore_position = position_memento.restore_current_position(board, pieces)
-				reset_squares(restore_position)
-				generate_moves(restore_position)
+				position_memento.restore_current_position()
+				generate_moves()
 
 				# Update the piece_moves bitboard
 				piece_moves -= move
@@ -2427,10 +1810,10 @@ def calculate_black_perft(depth, current_depth):
 			current_active_black_pieces -= piece
 
 	if depth == current_depth:
-		return board.nodes
+		return nodes
 
 # ****************************************************************************
-# ************************ COMMAND LINE OPTIONS ***************************
+# ************************ COMMAND LINE OPTIONS *****************************
 # ****************************************************************************
 
 # No Computer Player
@@ -2455,11 +1838,11 @@ elif len(sys.argv) == 2:
 		computer_end = logger.return_timestamp()
 
 		# Record statistics
-		nps = board.nodes / ((computer_end - computer_start)/1000.0)
-		logger.log("nodes: " + str(board.nodes))
+		nps = nodes / ((computer_end - computer_start)/1000.0)
+		logger.log("nodes: " + str(nodes))
 		logger.log("nps: " + str(nps))
 		logger.log("************************************")
-		board.nodes = 0
+		nodes = 0
 
 		root.mainloop()
 	
@@ -2488,12 +1871,18 @@ elif len(sys.argv) == 4:
 		computer_plays = ''
 		initialize_with_fen_position(sys.argv[2])
 
+		
 		if white_to_move:
+			start = logger.return_timestamp()
 			nodes = calculate_white_perft(depth, depth)
+			end = logger.return_timestamp()
 		else:
+			start = logger.return_timestamp()
 			nodes = calculate_black_perft(depth, depth)
+			end = logger.return_timestamp()
+	nps = nodes / ((end - start)/1000.0)
 
-	print('Nodes:', nodes)
+	print('Nodes:', nodes, ', NPS:', int(nps), 'Seconds:', round(((end - start)/1000),2))
 
 else: 
 	print('Please initialize the program with one of the following options:')
