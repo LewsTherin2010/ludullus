@@ -70,6 +70,74 @@ def initialize_intervening_square_bitboards():
 				if bitboard != 0:
 					intervening_squares_bitboards[key] = bitboard
 
+def initialize_intervening_square_rank_and_file_bb():
+	global intervening_squares_rank_and_file_bb
+
+	# Files loop
+	for first_square in range(64):
+		for second_square in range(64):
+			if first_square < second_square and first_square // 8 == second_square // 8:
+				key = (1 << first_square) + (2 << second_square)
+
+				i = first_square + 1
+				bitboard = 0
+				while i < second_square:
+					bitboard += 1 << i
+					i += 1
+
+				if bitboard != 0:
+					intervening_squares_rank_and_file_bb[key] = bitboard
+
+	# Ranks loop
+	for first_square in range(64):
+		for second_square in range(64):
+			if first_square < second_square and first_square % 8 == second_square % 8:
+				key = (1 << first_square) + (1 << second_square)
+
+				i = first_square + 8
+				bitboard = 0
+				while i < second_square:
+					bitboard += 1 << i
+					i += 8
+
+				if bitboard != 0:
+					intervening_squares_rank_and_file_bb[key] = bitboard
+
+def initialize_intervening_square_diagonal_bb():
+	global intervening_squares_diagonal_bb
+
+	# A1H8 diagonals loop
+	for first_square in range(64):
+		for second_square in range(64):
+			if first_square < second_square and (second_square - first_square) % 9 == 0:
+				key = (1 << first_square) + (1 << second_square)
+
+				i = first_square + 9
+				bitboard = 0
+				while i < second_square:
+					bitboard += 1 << i
+					i += 9
+
+				if bitboard != 0:
+					intervening_squares_diagonal_bb[key] = bitboard
+
+	# A8H1 diagonals loop
+	for first_square in range(64):
+		for second_square in range(64):
+			if first_square < second_square and (second_square - first_square) % 7 == 0:
+				key = (1 << first_square) + (1 << second_square)
+
+				i = first_square + 7
+				bitboard = 0
+				while i < second_square:
+					bitboard += 1 << i
+					i += 7
+
+				if bitboard != 0:
+					intervening_squares_diagonal_bb[key] = bitboard
+
+
+
 def initialize_knight_bitboards():
 	for x in range(8):
 		for y in range(8):
@@ -478,6 +546,12 @@ def calculate_a8_h1_diagonal_bitboard_variables():
 # 0 0 0 0 0 0 0 0		0 0 0 0 0 0 0 X      0 0 0 0 0 0 0 0
 intervening_squares_bitboards = {}
 initialize_intervening_square_bitboards()
+
+intervening_squares_rank_and_file_bb = {}
+initialize_intervening_square_rank_and_file_bb()
+
+intervening_squares_diagonal_bb = {}
+initialize_intervening_square_diagonal_bb()
 
 # Knight move bitboards
 knight_move_bitboards = [0 for x in range(64)]
