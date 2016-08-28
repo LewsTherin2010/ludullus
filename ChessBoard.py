@@ -503,7 +503,7 @@ class WhitePawn(WhitePiece):
 
 		# Queen promotion
 		if eightx_y % 8 == 7:
-			self.promote_to_queen(x, y)
+			self.promote_to_queen(eightx_y)
 
 		# Reset the halfmove clock
 		halfmove_clock = 0
@@ -523,7 +523,7 @@ class WhitePawn(WhitePiece):
 		# Because "all_white_moves"  is really just a list of squares the black king can't move onto, add all potential pawn attacks to it.
 		all_white_moves = all_white_moves | self.moves | white_pawn_attacks[self.eightx_y]
 
-	def promote_to_queen(self, x, y):
+	def promote_to_queen(self, eightx_y):
 		global white_pinners
 		global active_white_pieces
 
@@ -531,14 +531,10 @@ class WhitePawn(WhitePiece):
 		self.leave_square(True)
 
 		# Find the highest index for the pieces dict
-		highest_key = 0
-		for key in pieces:
-
-			if bit_significance_mapping[key] > 30 and bit_significance_mapping[key] > highest_key:
-				highest_key = bit_significance_mapping[key]
+		highest_key = max(active_white_pieces + active_black_pieces)
 
 		# Add a new white queen to the pieces array
-		pieces[1<<(highest_key + 1)] = WhiteQueen(x, y, True, 1<<(highest_key + 1), 1)
+		pieces[1<<(highest_key + 1)] = WhiteQueen(eightx_y // 8, eightx_y % 8, True, 1<<(highest_key + 1), 1)
 
 		# Add the queen to the active white pieces
 		active_white_pieces.append(1<<(highest_key + 1))
@@ -562,7 +558,7 @@ class BlackPawn(BlackPiece):
 
 		# Queen promotion
 		if eightx_y % 8 == 0:
-			self.promote_to_queen(x, y)
+			self.promote_to_queen(eightx_y)
 
 		# Reset the halfmove clock
 		halfmove_clock = 0
@@ -589,20 +585,16 @@ class BlackPawn(BlackPiece):
 		self.leave_square(True)
 
 		# Find the highest index for the pieces dict
-		highest_key = 0
-		for key in pieces:
-
-			if bit_significance_mapping[key] > 30 and bit_significance_mapping[key] > highest_key:
-				highest_key = bit_significance_mapping[key]
+		highest_key = max(active_white_pieces + active_black_pieces)
 
 		# Add a new black queen to the pieces array
-		pieces[1<<(highest_key + 1)] = BlackQueen(x, y, False, 1<<(highest_key + 1), 1)
+		pieces[1<<(highest_key + 1)] = BlackQueen(eightx_y // 8, eightx_y % 8, False, 1<<(highest_key + 1), 1)
 
 		# Add the queen to the active black pieces
 		active_black_pieces.append(1<<(highest_key + 1))
 
 		# Add the queen to the set of black pinners
-		black_pinners.append((1<<(highest_key + 1)))
+		black_pinners.append(1<<(highest_key + 1))
 
 class PositionMemento():
 	def __init__(self):
@@ -628,6 +620,10 @@ class PositionMemento():
 		self.former_active_white_pieces = active_white_pieces[:]
 		self.former_active_black_pieces = active_black_pieces[:]
 
+		# Store pinners (this can change, because of queen promotion)
+		self.former_white_pinners = white_pinners[:]
+		self.former_black_pinners = black_pinners[:]
+
 		# Store position
 		self.position = squares[:]
 
@@ -644,6 +640,8 @@ class PositionMemento():
 		global all_black_positions
 		global pieces
 		global squares
+		global white_pinners
+		global black_pinners
 
 		# Restore last-move variables
 		white_to_move = self.former_white_to_move
@@ -661,6 +659,10 @@ class PositionMemento():
 
 		for piece in piece_indexes:
 			pieces[piece].eightx_y = self.piece_positions[piece]
+
+		# Restore pinners
+		white_pinners = self.former_white_pinners[:]
+		black_pinners = self.former_black_pinners[:]
 
 		# Restore active pieces
 		active_white_pieces = self.former_active_white_pieces[:]
@@ -871,6 +873,7 @@ def generate_moves():
 	global sixth_rank_shifted_to_fifth
 	global en_passant_pieces
 	global en_passant_victim
+	global pieces
 
 	# Reset board variables
 	checker_types = []
@@ -928,7 +931,7 @@ def generate_moves():
 				en_passant_pieces.append(en_passant_attacker)
 				en_passant_victim = squares[last_move_destination_eightx_y]
 
-	# DETECT WHITE PINS ON BLACK PIECES
+	# DETECT WHITE PINS ON WHITE PIECES
 	pieces[1<<30].find_pins()
 
 	# A pinned piece may only move on the ray between the king and the pinning piece.
@@ -948,7 +951,7 @@ def generate_moves():
 		# Update the pinned piece
 		pieces[pinned_piece].moves = pieces[pinned_piece].moves & potential_moves
 
-	# DETECT BLACK PINS ON WHITE PIECES
+	# DETECT BLACK PINS ON BLACK PIECES
 	pieces[1<<31].find_pins()
 
 	# A pinned piece may only move on the ray between the king and the pinning piece.
@@ -974,23 +977,8 @@ def generate_moves():
 
 	# DETECT CHECKS
 	if white_to_move:	
-		king_position = 1 << (pieces[1<<31].eightx_y)
-
-		if all_white_moves & king_position > 0:
-			# If the king is in check, discover the type and location of the checking pieces
-			for piece in active_white_pieces:
-				if pieces[piece].moves & king_position > 1:
-					checker_positions.append(pieces[piece].eightx_y)
-					checker_types.append(pieces[piece].type)
-
-			# Calculate the moves that friendly pieces can perform to save the king
-			calculate_check_moves(1<<31)
-
-	else:
 		king_position = 1 << (pieces[1<<30].eightx_y)
-
 		if all_black_moves & king_position > 0:
-
 			# If the king is in check, discover the type and location of the checking pieces
 			for piece in active_black_pieces:
 				if pieces[piece].moves & king_position > 1:
@@ -999,6 +987,19 @@ def generate_moves():
 
 			# Calculate the moves that friendly pieces can perform to save the king
 			calculate_check_moves(1<<30)
+
+	else:
+		king_position = 1 << (pieces[1<<31].eightx_y)
+		if all_white_moves & king_position > 0:
+
+			# If the king is in check, discover the type and location of the checking pieces
+			for piece in active_white_pieces:
+				if pieces[piece].moves & king_position > 1:
+					checker_positions.append(pieces[piece].eightx_y)
+					checker_types.append(pieces[piece].type)
+
+			# Calculate the moves that friendly pieces can perform to save the king
+			calculate_check_moves(1<<31)
 
 # Create a bitboard of moves that can be used to defend the king.
 # Then, pass the list to the defend_move() function, which will bitwise AND that bitboard with the piece's own bitboard.
@@ -1138,6 +1139,11 @@ def calculate_white_move(depth, current_depth):
 			eightx_y = bit_significance_mapping[move]
 
 			# Make move and return value of board (without graphics)
+			""" USEFUL DEBUGGING CODE
+			indentation=' ' * ((depth-current_depth)*2)
+			print(indentation, 'Piece:', bit_significance_mapping[piece], 'Move:', bit_significance_mapping[move])
+			"""
+
 			pieces[piece].move_piece(eightx_y)
 
 			# Recurse. If this calculation is the leaf of the search tree, find the position of the board.
@@ -1145,8 +1151,11 @@ def calculate_white_move(depth, current_depth):
 			if current_depth == 0:
 				# Calculate the position of the board
 				position_value = evaluate_position()
+				position_memento.restore_current_position()
 			else:
 				position_value = calculate_black_move(depth, current_depth - 1)
+				position_memento.restore_current_position()
+				generate_moves()
 
 			# compare value of move with previous high move value
 			if position_value > best_position_value:
@@ -1154,9 +1163,6 @@ def calculate_white_move(depth, current_depth):
 				best_move_piece = piece
 				best_move_eightx_y = eightx_y
 		
-			# restore game state using Memento
-			position_memento.restore_current_position()
-			generate_moves()
 
 			# Update the piece_moves bitboard
 			piece_moves -= move
@@ -1199,6 +1205,11 @@ def calculate_black_move(depth, current_depth):
 			eightx_y = bit_significance_mapping[move]
 
 			# Make move and return value of board (without graphics)
+			""" USEFUL DEBUGGING CODE
+			indentation=' ' * ((depth-current_depth)*2)
+			print(indentation, 'Piece:', bit_significance_mapping[piece], 'Move:', bit_significance_mapping[move])
+			"""
+
 			pieces[piece].move_piece(eightx_y)
 
 			# Recurse. If this calculation is the leaf of the search tree, find the position of the board.
@@ -1206,18 +1217,17 @@ def calculate_black_move(depth, current_depth):
 			if current_depth == 0:
 				# Calculate the position of the board
 				position_value = evaluate_position()
+				position_memento.restore_current_position()
 			else:
 				position_value = calculate_white_move(depth, current_depth - 1)
+				position_memento.restore_current_position()
+				generate_moves()
 
 			# compare value of move with previous high move value
 			if position_value < best_position_value:
 				best_position_value = position_value
 				best_move_piece = piece
 				best_move_eightx_y = eightx_y
-
-			# restore game state using Memento
-			position_memento.restore_current_position()
-			generate_moves()
 
 			# Update the piece_moves bitboard
 			piece_moves -= move
@@ -1498,8 +1508,19 @@ def calculate_white_perft(depth, current_depth):
 	global nodes
 	# store the current position, as well as the last move variables (for en passant detection)
 
-	if current_depth == 0:
-		nodes += 1	
+	if current_depth == 1:
+		generate_moves()
+
+		current_active_white_pieces = active_white_pieces + [1<<30]
+
+		for piece in current_active_white_pieces:
+			piece_moves = pieces[piece].moves
+
+			while piece_moves > 0:
+				move = piece_moves & -piece_moves
+				nodes += 1
+				piece_moves -= move
+
 	else:
 		position_memento = PositionMemento()
 		generate_moves()
@@ -1536,8 +1557,17 @@ def calculate_white_perft(depth, current_depth):
 def calculate_black_perft(depth, current_depth):
 	global nodes
 
-	if current_depth == 0:
-		nodes += 1
+	if current_depth == 1:
+		generate_moves()
+		current_active_black_pieces = active_black_pieces + [1<<31]
+
+		for piece in current_active_black_pieces:
+			piece_moves = pieces[piece].moves
+
+			while piece_moves > 0:
+				move = piece_moves & -piece_moves
+				nodes += 1
+				piece_moves -= move
 
 	else:
 		# store the current position
@@ -1642,9 +1672,12 @@ elif len(sys.argv) == 4:
 			start = logger.return_timestamp()
 			nodes = calculate_black_perft(depth, depth)
 			end = logger.return_timestamp()
-	nps = nodes / ((end - start)/1000.0)
 
-	print('Nodes:', nodes, ', NPS:', int(nps), 'Seconds:', round(((end - start)/1000),2))
+	if end-start == 0:
+		print('Nodes:', nodes, ', NPS:', nodes, 'Seconds:', '0')
+	else:
+		nps = nodes / ((end - start)/1000.0)
+		print('Nodes:', nodes, ', NPS:', int(nps), 'Seconds:', round(((end - start)/1000),2))
 
 else: 
 	print('Please initialize the program with one of the following options:')

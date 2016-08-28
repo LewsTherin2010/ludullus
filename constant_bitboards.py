@@ -14,7 +14,7 @@ def initialize_intervening_square_bitboards():
 	for first_square in range(64):
 		for second_square in range(64):
 			if first_square < second_square and first_square // 8 == second_square // 8:
-				key = (1 << first_square) + (2 << second_square)
+				key = (1 << first_square) + (1 << second_square)
 
 				i = first_square + 1
 				bitboard = 0
@@ -77,7 +77,7 @@ def initialize_intervening_square_rank_and_file_bb():
 	for first_square in range(64):
 		for second_square in range(64):
 			if first_square < second_square and first_square // 8 == second_square // 8:
-				key = (1 << first_square) + (2 << second_square)
+				key = (1 << first_square) + (1 << second_square)
 
 				i = first_square + 1
 				bitboard = 0
