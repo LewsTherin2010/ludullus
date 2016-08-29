@@ -697,6 +697,9 @@ pieces = {}
 for piece_index in piece_indexes:
 	pieces[piece_index] = []
 
+# Default is that the computer is not playing.
+computer_plays = ''
+
 # Pin variables
 white_pinners = [1<<16, 1<<17, 1<<24, 1<<25, 1<<28] # Queen, rooks, and bishops
 black_pinners = [1<<18, 1<<19, 1<<26, 1<<27, 1<<29] # Queen, rooks, and bishops
@@ -806,8 +809,6 @@ def handle_click (event):
 		deselect_piece()
 
 def select_piece(x, y, eightx_y):
-	#logger.log('select_piece')
-
 	# Color the selected square and redraw the piece
 	if square_display[x][y].color == "#789":
 		square_display[x][y].color = "#987"
@@ -1162,7 +1163,6 @@ def calculate_white_move(depth, current_depth):
 				best_position_value = position_value
 				best_move_piece = piece
 				best_move_eightx_y = eightx_y
-		
 
 			# Update the piece_moves bitboard
 			piece_moves -= move
@@ -1175,11 +1175,17 @@ def calculate_white_move(depth, current_depth):
 		if best_move_piece == -1: # Checkmate has occurred.
 			return -20000
 		else:
+			indentation=' ' * ((depth-current_depth)*2)
+			print(indentation, 'Piece:', bit_significance_mapping[best_move_piece], 'Move:', best_move_eightx_y, 'Value:', best_position_value)
+
 			return best_position_value
 	else: # root node
 		if best_move_piece == -1: # Checkmate has occurred.
 			return -1
 		else: 
+			indentation=' ' * ((depth-current_depth)*2)
+			print(indentation, 'Piece:', bit_significance_mapping[best_move_piece], 'Move:', best_move_eightx_y, 'Value:', best_position_value)
+
 			return {"best_move_piece": best_move_piece, "best_move": best_move_eightx_y}
 
 def calculate_black_move(depth, current_depth):
@@ -1241,11 +1247,17 @@ def calculate_black_move(depth, current_depth):
 		if best_move_piece == -1: # Checkmate has occurred.
 			return 20000
 		else:
+			indentation=' ' * ((depth-current_depth)*2)
+			print(indentation, 'Piece:', bit_significance_mapping[best_move_piece], 'Move:', best_move_eightx_y, 'Value:', best_position_value)
+
 			return best_position_value
 	else: # root node
 		if best_move_piece == -1: # Checkmate has occurred.
 			return -1
 		else: 
+			indentation=' ' * ((depth-current_depth)*2)
+			print(indentation, 'Piece:', bit_significance_mapping[best_move_piece], 'Move:', best_move_eightx_y, 'Value:', best_position_value)
+
 			return {"best_move_piece": best_move_piece, "best_move": best_move_eightx_y}
 
 # ****************************************************************************
@@ -1608,20 +1620,19 @@ def calculate_black_perft(depth, current_depth):
 # ************************ COMMAND LINE OPTIONS *****************************
 # ****************************************************************************
 
-# No Computer Player
+# Just start the game, no special options
 if len(sys.argv) == 1:
 	computer_plays = ''
 	initialize_board_display()
 	initialize_with_start_position()
 	root.mainloop()
 
-# Computer plays black or white
-elif len(sys.argv) == 2:
-	initialize_board_display()
-	initialize_with_start_position()
+# Other options
+elif len(sys.argv) > 1:
+	if sys.argv[1] == 'white': # Computer plays white
+		initialize_board_display()
+		initialize_with_start_position()
 
-	# Computer plays white
-	if sys.argv[1] == 'white':
 		computer_plays = 'white'
 
 		# Play the move
@@ -1637,33 +1648,61 @@ elif len(sys.argv) == 2:
 		nodes = 0
 
 		root.mainloop()
-	
-	# Computer plays black
-	if sys.argv[1] == 'black':
+
+	elif sys.argv[1] == 'black': # Computer plays black
+		initialize_board_display()
+		initialize_with_start_position()
 		computer_plays = 'black'
 		root.mainloop()
 
-# Load from Forsyth-Edwards notation
-# Specification found here: https://www.chessclub.com/user/help/PGN-spec (section 16.1)
-elif len(sys.argv) == 3:
-	if sys.argv[1] == 'fen':
+	elif sys.argv[1] == 'fen': # Load the board with a FEN string
 		computer_plays = ''
 		initialize_board_display()
 		initialize_with_fen_position(sys.argv[2])
+
+		if len(sys.argv) == 4: 
+			if sys.argv[3] == 'white': # Have the computer play white in the position specified by the FEN string
+				computer_plays = 'white'
+				if white_to_move:
+
+					# Play the move
+					computer_start = logger.return_timestamp()
+					computer_move(computer_plays)
+					computer_end = logger.return_timestamp()
+
+					# Record statistics
+					nps = nodes / ((computer_end - computer_start)/1000.0)
+					logger.log("nodes: " + str(nodes))
+					logger.log("nps: " + str(nps))
+					logger.log("************************************")
+					nodes = 0
+
+			elif sys.argv[3] == 'black': # Have the computer play black in the position specified by the FEN string
+				computer_plays = 'black'
+				if not white_to_move:
+					# Play the move
+					computer_start = logger.return_timestamp()
+					computer_move(computer_plays)
+					computer_end = logger.return_timestamp()
+
+					# Record statistics
+					nps = nodes / ((computer_end - computer_start)/1000.0)
+					logger.log("nodes: " + str(nodes))
+					logger.log("nps: " + str(nps))
+					logger.log("************************************")
+					nodes = 0
+
 		root.mainloop()
-# Calculate perft to a specific depth from a position specified in FEN
-elif len(sys.argv) == 4:
-	if sys.argv[1] == 'perft':
-		
+
+	# Calculate perft to a specific depth from a position specified in FEN
+	elif sys.argv[1] == 'perft': # Count the number of leaf nodes at particular depths of minimax search
 		if not sys.argv[3].isdigit():
 			print ('The depth parameter must be a digit.')
 		else:
 			depth = int(sys.argv[3])
 
-		computer_plays = ''
 		initialize_with_fen_position(sys.argv[2])
 
-		
 		if white_to_move:
 			start = logger.return_timestamp()
 			nodes = calculate_white_perft(depth, depth)
@@ -1673,16 +1712,13 @@ elif len(sys.argv) == 4:
 			nodes = calculate_black_perft(depth, depth)
 			end = logger.return_timestamp()
 
-	if end-start == 0:
-		print('Nodes:', nodes, ', NPS:', nodes, 'Seconds:', '0')
-	else:
-		nps = nodes / ((end - start)/1000.0)
-		print('Nodes:', nodes, ', NPS:', int(nps), 'Seconds:', round(((end - start)/1000),2))
-
+		if end-start == 0:
+			print('Nodes:', nodes, ', NPS:', nodes, 'Seconds:', '0')
+		else:
+			nps = nodes / ((end - start)/1000.0)
+			print('Nodes:', nodes, ', NPS:', int(nps), 'Seconds:', round(((end - start)/1000),2))
 else: 
 	print('Please initialize the program with one of the following options:')
-	print('1: python chessboard.py')
-	print('2: python chessboard.py white')
-	print('3: python chessboard.py black')
-	print('4: python chessboard.py fen [FEN]')
-	print('5: python chessboard.py perft [FEN] [DEPTH]')
+	print('1: python chessboard.py {white/black}')
+	print('2: python chessboard.py fen [FEN] {white/black}')
+	print('3: python chessboard.py perft [FEN] [DEPTH]')
