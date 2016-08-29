@@ -977,7 +977,7 @@ def generate_moves():
 	pieces[1<<31].calculate_moves()
 
 	# DETECT CHECKS
-	if white_to_move:	
+	if white_to_move:
 		king_position = 1 << (pieces[1<<30].eightx_y)
 		if all_black_moves & king_position > 0:
 			# If the king is in check, discover the type and location of the checking pieces
@@ -1120,6 +1120,7 @@ def computer_move(computer_plays):
 	move_selected_piece(best_move)
 
 def calculate_white_move(depth, current_depth):
+	global white_to_move
 	# store the current position, as well as the last move variables (for en passant detection)
 	position_memento = PositionMemento()
 	generate_moves()
@@ -1154,9 +1155,9 @@ def calculate_white_move(depth, current_depth):
 				position_value = evaluate_position()
 				position_memento.restore_current_position()
 			else:
+				white_to_move = not white_to_move
 				position_value = calculate_black_move(depth, current_depth - 1)
 				position_memento.restore_current_position()
-				generate_moves()
 
 			# compare value of move with previous high move value
 			if position_value > best_position_value:
@@ -1167,6 +1168,10 @@ def calculate_white_move(depth, current_depth):
 			# Update the piece_moves bitboard
 			piece_moves -= move
 
+		if current_depth > 0:
+			generate_moves()
+
+
 	# For any node but the root of the tree, the function should return the calculate value of the position.
 	# For the root node of the tree, the function should return a piece index, and the x, y values of the best move.
 	# If checkmate has occurred in a branch, return an arbitrarily large number as the value of the position.
@@ -1175,20 +1180,15 @@ def calculate_white_move(depth, current_depth):
 		if best_move_piece == -1: # Checkmate has occurred.
 			return -20000
 		else:
-			indentation=' ' * ((depth-current_depth)*2)
-			print(indentation, 'Piece:', bit_significance_mapping[best_move_piece], 'Move:', best_move_eightx_y, 'Value:', best_position_value)
-
 			return best_position_value
 	else: # root node
 		if best_move_piece == -1: # Checkmate has occurred.
 			return -1
 		else: 
-			indentation=' ' * ((depth-current_depth)*2)
-			print(indentation, 'Piece:', bit_significance_mapping[best_move_piece], 'Move:', best_move_eightx_y, 'Value:', best_position_value)
-
 			return {"best_move_piece": best_move_piece, "best_move": best_move_eightx_y}
 
 def calculate_black_move(depth, current_depth):
+	global white_to_move
 	# store the current position, as well as the last move variables (for en passant detection)
 	position_memento = PositionMemento()
 	generate_moves()
@@ -1205,7 +1205,6 @@ def calculate_black_move(depth, current_depth):
 		piece_moves = pieces[piece].moves
 
 		while piece_moves > 0:
-
 			# Because of how negative numbers are stored, the bitwise and of a number and its negative will equal the smallest bit in the number.
 			move = piece_moves & -piece_moves
 			eightx_y = bit_significance_mapping[move]
@@ -1225,9 +1224,9 @@ def calculate_black_move(depth, current_depth):
 				position_value = evaluate_position()
 				position_memento.restore_current_position()
 			else:
+				white_to_move = not white_to_move
 				position_value = calculate_white_move(depth, current_depth - 1)
 				position_memento.restore_current_position()
-				generate_moves()
 
 			# compare value of move with previous high move value
 			if position_value < best_position_value:
@@ -1238,6 +1237,10 @@ def calculate_black_move(depth, current_depth):
 			# Update the piece_moves bitboard
 			piece_moves -= move
 
+		if current_depth > 0:
+			generate_moves()
+
+
 	# For any node but the root of the tree, the function should return the calculate value of the position.
 	# For the root node of the tree, the function should return a piece index, and the x, y values of the best move.
 	# If checkmate has occurred in a branch, return an arbitrarily large number as the value of the position.
@@ -1247,17 +1250,11 @@ def calculate_black_move(depth, current_depth):
 		if best_move_piece == -1: # Checkmate has occurred.
 			return 20000
 		else:
-			indentation=' ' * ((depth-current_depth)*2)
-			print(indentation, 'Piece:', bit_significance_mapping[best_move_piece], 'Move:', best_move_eightx_y, 'Value:', best_position_value)
-
 			return best_position_value
 	else: # root node
 		if best_move_piece == -1: # Checkmate has occurred.
 			return -1
 		else: 
-			indentation=' ' * ((depth-current_depth)*2)
-			print(indentation, 'Piece:', bit_significance_mapping[best_move_piece], 'Move:', best_move_eightx_y, 'Value:', best_position_value)
-
 			return {"best_move_piece": best_move_piece, "best_move": best_move_eightx_y}
 
 # ****************************************************************************
@@ -1332,6 +1329,9 @@ def initialize_with_fen_position(fen_string):
 	global all_white_positions
 	global all_black_positions
 	global all_piece_positions
+	global active_white_pieces
+	global active_black_pieces
+	global pieces
 
 	# Split it into separate parts
 	fen_array = fen_string.split(' ')
@@ -1349,10 +1349,10 @@ def initialize_with_fen_position(fen_string):
 	black_knight_indexes = [1<<22, 1<<23]
 	white_bishop_indexes = [1<<24, 1<<25]
 	black_bishop_indexes = [1<<26, 1<<27]
-	white_queen_index = 1<<28
-	black_queen_index = 1<<29
-	white_king_index = 1<<30
-	black_king_index = 1<<31
+	white_queen_indexes = [1<<28]
+	black_queen_indexes = [1<<29]
+	white_king_indexes = [1<<30]
+	black_king_indexes = [1<<31]
 
 	# Loop through the array, parse each string, and initialize each piece
 	rank_counter = 0
@@ -1397,14 +1397,21 @@ def initialize_with_fen_position(fen_string):
 					pieces[black_bishop_index] = BlackBishop(file_counter, rank_counter, False, black_bishop_index, 3)
 					black_bishop_indexes.remove(black_bishop_index)
 				elif file == 'Q': # White queen
+					white_queen_index = white_queen_indexes[0]
 					pieces[white_queen_index] = WhiteQueen(file_counter, rank_counter, True, white_queen_index, 1)
+					white_queen_indexes.remove(white_queen_index)
 				elif file == 'q': # Black queen
+					black_queen_index = black_queen_indexes[0]
 					pieces[black_queen_index] = BlackQueen(file_counter, rank_counter, False, black_queen_index, 1)
+					black_queen_indexes.remove(black_queen_index)
 				elif file == 'K': # White king
+					white_king_index = white_king_indexes[0]
 					pieces[white_king_index] = WhiteKing(file_counter, rank_counter, True, white_king_index, 0)
+					white_king_indexes.remove(white_king_index)
 				elif file == 'k': # Black king
+					black_king_index = black_king_indexes[0]
 					pieces[black_king_index] = BlackKing(file_counter, rank_counter, False, black_king_index, 0)
-
+					black_king_indexes.remove(black_king_index)
 				file_counter += 1
 
 		if file_counter != 8:
@@ -1503,6 +1510,20 @@ def initialize_with_fen_position(fen_string):
 	else:
 		print('The fullmove number field must be an integer.')
 
+	# The arrays that list all pieces and all active pieces need to be changed from their default values, which were set up to reflect the initial state of the board.
+	inactive_white_pieces = white_pawn_indexes + white_rook_indexes + white_king_indexes + white_bishop_indexes + white_queen_indexes + white_king_indexes
+	inactive_black_pieces = black_pawn_indexes + black_rook_indexes + black_king_indexes + black_bishop_indexes + black_queen_indexes + black_king_indexes
+
+	for inactive_piece in inactive_white_pieces:
+		active_white_pieces.remove(inactive_piece)
+		piece_indexes.remove(inactive_piece)
+		del pieces[inactive_piece]
+
+	for inactive_piece in inactive_black_pieces:
+		active_black_pieces.remove(inactive_piece)
+		piece_indexes.remove(inactive_piece)
+		del pieces[inactive_piece]
+
 	# Manually set up a couple bitboards
 	for piece in pieces:
 		if pieces[piece].white:
@@ -1518,6 +1539,7 @@ def initialize_with_fen_position(fen_string):
 
 def calculate_white_perft(depth, current_depth):
 	global nodes
+	global white_to_move
 	# store the current position, as well as the last move variables (for en passant detection)
 
 	if current_depth == 1:
@@ -1551,6 +1573,7 @@ def calculate_white_perft(depth, current_depth):
 
 				# Make move and return value of board (without graphics)
 				pieces[piece].move_piece(eightx_y)
+				white_to_move = not white_to_move
 
 				# Recurse. If this calculation is the leaf of the search tree, find the position of the board.
 				# Otherwise, call the move function of the opposing side. 
@@ -1558,16 +1581,20 @@ def calculate_white_perft(depth, current_depth):
 			
 				# restore game state using Memento
 				position_memento.restore_current_position()
-				generate_moves()
 
 				# Update the piece_moves bitboard
 				piece_moves -= move
+
+			if current_depth > 1:
+				generate_moves()
+
 
 	if depth == current_depth:
 		return nodes
 
 def calculate_black_perft(depth, current_depth):
 	global nodes
+	global white_to_move
 
 	if current_depth == 1:
 		generate_moves()
@@ -1601,6 +1628,7 @@ def calculate_black_perft(depth, current_depth):
 
 				# Make move and return value of board (without graphics)
 				pieces[piece].move_piece(eightx_y)
+				white_to_move = not white_to_move
 
 				# Recurse. If this calculation is the leaf of the search tree, find the position of the board.
 				# Otherwise, call the move function of the opposing side. 
@@ -1608,10 +1636,12 @@ def calculate_black_perft(depth, current_depth):
 
 				# restore game state using Memento
 				position_memento.restore_current_position()
-				generate_moves()
 
 				# Update the piece_moves bitboard
 				piece_moves -= move
+
+			if current_depth > 1:
+				generate_moves()
 
 	if depth == current_depth:
 		return nodes
