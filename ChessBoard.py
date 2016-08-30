@@ -671,103 +671,6 @@ class PositionMemento():
 		squares = self.position[:]
 
 # **************************************************************************
-# ********** GLOBAL VARIABLES (FORMER GLOBALS FILE.PY) *********************
-# **************************************************************************
-
-# Create a root window
-root = Tk()
-root.title("Chess Board")
-root.geometry("820x820")
-
-# Create a frame in the window to hold other widgets
-app = Frame(root, height = 1000, width = 1000, bg = "#333")
-app.grid()
-
-# Create the board display and the square display
-board_display = BoardDisplay(app)
-square_display = [[SquareDisplay(x, y, board_display) for y in range(8)] for x in range(8)]
-
-# Create the main data structures for the engine
-squares = [0 for i in range(64)] # i = 8x+y
-
-# Create the pieces dictionary
-piece_indexes = [2**x for x in range(32)]
-pieces = {}
-
-for piece_index in piece_indexes:
-	pieces[piece_index] = []
-
-# Default is that the computer is not playing.
-computer_plays = ''
-
-# Pin variables
-white_pinners = [1<<16, 1<<17, 1<<24, 1<<25, 1<<28] # Queen, rooks, and bishops
-black_pinners = [1<<18, 1<<19, 1<<26, 1<<27, 1<<29] # Queen, rooks, and bishops
-
-# Active pieces
-# These lists do not include the king's index. The kings will be active for the entire game.
-active_white_pieces = [1, 1<<1, 1<<2, 1<<3, 1<<4, 1<<5, 1<<6, 1<<7, 1<<16, 1<<17, 1<<20, 1<<21, 1<<24, 1<<25, 1<<28]
-active_black_pieces = [1<<8, 1<<9, 1<<10, 1<<11, 1<<12, 1<<13, 1<<14, 1<<15, 1<<18, 1<<19, 1<<22, 1<<23, 1<<26, 1<<27, 1<<29]
-
-# En passant variables
-en_passant_pieces = []
-en_passant_victim = 0
-
-# Move variables
-white_to_move = True
-
-last_move_piece_type = -1
-last_move_origin_eightx_y = -1
-last_move_destination_eightx_y = -1
-
-#Castles
-# The bits here are as follow:
-# 1000 : White castle kingside
-# 0100 : White castle queenside
-# 0010 : Black castle kingside
-# 0001 : Black castle queenside
-castles = 0b1111
-
-# Check variables
-checker_types = []
-checker_positions = []
-
-# pin arrays
-pinned_white_pieces = []
-pinned_black_pieces = []
-
-# FEN variables - These are to enable load from Forsyth-Edwards notation
-halfmove_clock = 0
-fullmove_number = 1
-
-# This is a way to get the significance of numbers that are powers of 2. Useful for translating piece indexes
-bit_significance_mapping = {}
-for i in range(64):
-	bit_significance_mapping[1<<i] = i
-
-###### BOARD STATE BITBOARDS ######
-# "all_white_moves" and "all_black_moves" are misnamed. They only exist to prevent a king from moving onto a square that the opposing side can move onto. 
-# They are not updated after pins are found. 
-# They are not updated by the kings' move calculations. 
-# They are not updated after check moves are calculated.
-# They include unrealized pawn attacks
-# They include defended pieces
-all_white_moves = 0 
-all_black_moves = 0
-
-all_white_positions = 0
-all_black_positions = 0
-
-all_piece_positions = 0
-
-third_rank_shifted_to_fourth = 0 # For use in calculating white pawns' first moves
-sixth_rank_shifted_to_fifth = 0 # For use in calculating black pawns' first moves
-
-piece_values = {0:0,1<<0:1, 1<<1:1, 1<<2:1, 1<<3:1, 1<<4:1, 1<<5:1, 1<<6:1, 1<<7:1, 1<<8:-1, 1<<9:-1, 1<<10:-1, 1<<11:-1, 1<<12:-1, 1<<13:-1, 1<<14:-1, 1<<15:-1, 1<<16:5, 1<<17:5, 1<<18:-5, 1<<19:-5, 1<<20:3, 1<<21:3, 1<<22:-3, 1<<23:-3, 1<<24:3, 1<<25:3, 1<<26:-3, 1<<27:-3, 1<<28: 9, 1<<29:-9, 1<<30:10000, 1<<31:-10000}
-
-nodes = 0
-
-# **************************************************************************
 # ************************** USER INTERFACE ********************************
 # **************************************************************************
 
@@ -1047,7 +950,7 @@ def calculate_check_moves(king):
 			if pieces[king].eightx_y + vector >= 0 and pieces[king].eightx_y + vector <= 64:
 				potential_move_to_remove = 1 << (pieces[king].eightx_y + vector)
 			else:
-				potential_move_too_remove = 0
+				potential_move_to_remove = 0
 
 			if king_move_bitboards[king_eightx_y] & potential_move_to_remove > 0:
 				moves_to_remove += potential_move_to_remove
@@ -1256,6 +1159,115 @@ def calculate_black_move(depth, current_depth):
 			return -1
 		else: 
 			return {"best_move_piece": best_move_piece, "best_move": best_move_eightx_y}
+
+def calculate_white_perft(depth, current_depth):
+	global nodes
+	global white_to_move
+	# store the current position, as well as the last move variables (for en passant detection)
+
+	if current_depth == 1:
+		generate_moves()
+
+		current_active_white_pieces = active_white_pieces + [1<<30]
+
+		for piece in current_active_white_pieces:
+			piece_moves = pieces[piece].moves
+
+			while piece_moves > 0:
+				move = piece_moves & -piece_moves
+				nodes += 1
+				piece_moves -= move
+
+	else:
+		position_memento = PositionMemento()
+		generate_moves()
+
+		# Loop through all pieces' moves
+		current_active_white_pieces = active_white_pieces + [1<<30]
+
+		for piece in current_active_white_pieces:
+			piece_moves = pieces[piece].moves
+
+			while piece_moves > 0:
+
+				# Because of how negative numbers are stored, the bitwise and of a number and its negative will equal the smallest bit in the number.
+				move = piece_moves & -piece_moves
+				eightx_y = bit_significance_mapping[move]
+
+				# Make move and return value of board (without graphics)
+				pieces[piece].move_piece(eightx_y)
+				white_to_move = not white_to_move
+
+				# Recurse. If this calculation is the leaf of the search tree, find the position of the board.
+				# Otherwise, call the move function of the opposing side. 
+				position_value = calculate_black_perft(depth, current_depth - 1)
+			
+				# restore game state using Memento
+				position_memento.restore_current_position()
+
+				# Update the piece_moves bitboard
+				piece_moves -= move
+
+			if current_depth > 1:
+				generate_moves()
+
+
+	if depth == current_depth:
+		return nodes
+
+def calculate_black_perft(depth, current_depth):
+	global nodes
+	global white_to_move
+
+	if current_depth == 1:
+		generate_moves()
+		current_active_black_pieces = active_black_pieces + [1<<31]
+
+		for piece in current_active_black_pieces:
+			piece_moves = pieces[piece].moves
+
+			while piece_moves > 0:
+				move = piece_moves & -piece_moves
+				nodes += 1
+				piece_moves -= move
+
+	else:
+		# store the current position
+		position_memento = PositionMemento()
+		generate_moves()
+
+		# Loop through all pieces' moves
+		# Add the king
+		current_active_black_pieces = active_black_pieces + [1<<31]
+
+		for piece in current_active_black_pieces:
+			piece_moves = pieces[piece].moves
+
+			while piece_moves > 0:
+
+				# Because of how negative numbers are stored, the bitwise and of a number and its negative will equal the smallest bit in the number.
+				move = piece_moves & -piece_moves
+				eightx_y = bit_significance_mapping[move]
+
+				# Make move and return value of board (without graphics)
+				pieces[piece].move_piece(eightx_y)
+				white_to_move = not white_to_move
+
+				# Recurse. If this calculation is the leaf of the search tree, find the position of the board.
+				# Otherwise, call the move function of the opposing side. 
+				position_value = calculate_white_perft(depth, current_depth - 1)
+
+				# restore game state using Memento
+				position_memento.restore_current_position()
+
+				# Update the piece_moves bitboard
+				piece_moves -= move
+
+			if current_depth > 1:
+				generate_moves()
+
+	if depth == current_depth:
+		return nodes
 
 # ****************************************************************************
 # ************************ INITIALIZTION FUNCTIONS ***************************
@@ -1537,114 +1549,105 @@ def initialize_with_fen_position(fen_string):
 	# Display the board
 	board_display.render_position(squares[:], square_display, pieces)
 
-def calculate_white_perft(depth, current_depth):
-	global nodes
-	global white_to_move
-	# store the current position, as well as the last move variables (for en passant detection)
 
-	if current_depth == 1:
-		generate_moves()
+# **************************************************************************
+# ********** GLOBAL VARIABLES (FORMER GLOBALS FILE.PY) *********************
+# **************************************************************************
 
-		current_active_white_pieces = active_white_pieces + [1<<30]
+# Create a root window
+root = Tk()
+root.title("Chess Board")
+root.geometry("820x820")
 
-		for piece in current_active_white_pieces:
-			piece_moves = pieces[piece].moves
+# Create a frame in the window to hold other widgets
+app = Frame(root, height = 1000, width = 1000, bg = "#333")
+app.grid()
 
-			while piece_moves > 0:
-				move = piece_moves & -piece_moves
-				nodes += 1
-				piece_moves -= move
+# Create the board display and the square display
+board_display = BoardDisplay(app)
+square_display = [[SquareDisplay(x, y, board_display) for y in range(8)] for x in range(8)]
 
-	else:
-		position_memento = PositionMemento()
-		generate_moves()
+# Create the main data structures for the engine
+squares = [0 for i in range(64)] # i = 8x+y
 
-		# Loop through all pieces' moves
-		current_active_white_pieces = active_white_pieces + [1<<30]
+# Create the pieces dictionary
+piece_indexes = [2**x for x in range(32)]
+pieces = {}
 
-		for piece in current_active_white_pieces:
-			piece_moves = pieces[piece].moves
+for piece_index in piece_indexes:
+	pieces[piece_index] = []
 
-			while piece_moves > 0:
+# Default is that the computer is not playing.
+computer_plays = ''
 
-				# Because of how negative numbers are stored, the bitwise and of a number and its negative will equal the smallest bit in the number.
-				move = piece_moves & -piece_moves
-				eightx_y = bit_significance_mapping[move]
+# Pin variables
+white_pinners = [1<<16, 1<<17, 1<<24, 1<<25, 1<<28] # Queen, rooks, and bishops
+black_pinners = [1<<18, 1<<19, 1<<26, 1<<27, 1<<29] # Queen, rooks, and bishops
 
-				# Make move and return value of board (without graphics)
-				pieces[piece].move_piece(eightx_y)
-				white_to_move = not white_to_move
+# Active pieces
+# These lists do not include the king's index. The kings will be active for the entire game.
+active_white_pieces = [1, 1<<1, 1<<2, 1<<3, 1<<4, 1<<5, 1<<6, 1<<7, 1<<16, 1<<17, 1<<20, 1<<21, 1<<24, 1<<25, 1<<28]
+active_black_pieces = [1<<8, 1<<9, 1<<10, 1<<11, 1<<12, 1<<13, 1<<14, 1<<15, 1<<18, 1<<19, 1<<22, 1<<23, 1<<26, 1<<27, 1<<29]
 
-				# Recurse. If this calculation is the leaf of the search tree, find the position of the board.
-				# Otherwise, call the move function of the opposing side. 
-				position_value = calculate_black_perft(depth, current_depth - 1)
-			
-				# restore game state using Memento
-				position_memento.restore_current_position()
+# En passant variables
+en_passant_pieces = []
+en_passant_victim = 0
 
-				# Update the piece_moves bitboard
-				piece_moves -= move
+# Move variables
+white_to_move = True
 
-			if current_depth > 1:
-				generate_moves()
+last_move_piece_type = -1
+last_move_origin_eightx_y = -1
+last_move_destination_eightx_y = -1
+
+#Castles
+# The bits here are as follow:
+# 1000 : White castle kingside
+# 0100 : White castle queenside
+# 0010 : Black castle kingside
+# 0001 : Black castle queenside
+castles = 0b1111
+
+# Check variables
+checker_types = []
+checker_positions = []
+
+# pin arrays
+pinned_white_pieces = []
+pinned_black_pieces = []
+
+# FEN variables - These are to enable load from Forsyth-Edwards notation
+halfmove_clock = 0
+fullmove_number = 1
+
+# This is a way to get the significance of numbers that are powers of 2. Useful for translating piece indexes
+bit_significance_mapping = {}
+for i in range(64):
+	bit_significance_mapping[1<<i] = i
+
+###### BOARD STATE BITBOARDS ######
+# "all_white_moves" and "all_black_moves" are misnamed. They only exist to prevent a king from moving onto a square that the opposing side can move onto. 
+# They are not updated after pins are found. 
+# They are not updated by the kings' move calculations. 
+# They are not updated after check moves are calculated.
+# They include unrealized pawn attacks
+# They include defended pieces
+all_white_moves = 0 
+all_black_moves = 0
+
+all_white_positions = 0
+all_black_positions = 0
+
+all_piece_positions = 0
+
+third_rank_shifted_to_fourth = 0 # For use in calculating white pawns' first moves
+sixth_rank_shifted_to_fifth = 0 # For use in calculating black pawns' first moves
+
+piece_values = {0:0,1<<0:1, 1<<1:1, 1<<2:1, 1<<3:1, 1<<4:1, 1<<5:1, 1<<6:1, 1<<7:1, 1<<8:-1, 1<<9:-1, 1<<10:-1, 1<<11:-1, 1<<12:-1, 1<<13:-1, 1<<14:-1, 1<<15:-1, 1<<16:5, 1<<17:5, 1<<18:-5, 1<<19:-5, 1<<20:3, 1<<21:3, 1<<22:-3, 1<<23:-3, 1<<24:3, 1<<25:3, 1<<26:-3, 1<<27:-3, 1<<28: 9, 1<<29:-9, 1<<30:10000, 1<<31:-10000}
+
+nodes = 0
 
 
-	if depth == current_depth:
-		return nodes
-
-def calculate_black_perft(depth, current_depth):
-	global nodes
-	global white_to_move
-
-	if current_depth == 1:
-		generate_moves()
-		current_active_black_pieces = active_black_pieces + [1<<31]
-
-		for piece in current_active_black_pieces:
-			piece_moves = pieces[piece].moves
-
-			while piece_moves > 0:
-				move = piece_moves & -piece_moves
-				nodes += 1
-				piece_moves -= move
-
-	else:
-		# store the current position
-		position_memento = PositionMemento()
-		generate_moves()
-
-		# Loop through all pieces' moves
-		# Add the king
-		current_active_black_pieces = active_black_pieces + [1<<31]
-
-		for piece in current_active_black_pieces:
-			piece_moves = pieces[piece].moves
-
-			while piece_moves > 0:
-
-				# Because of how negative numbers are stored, the bitwise and of a number and its negative will equal the smallest bit in the number.
-				move = piece_moves & -piece_moves
-				eightx_y = bit_significance_mapping[move]
-
-				# Make move and return value of board (without graphics)
-				pieces[piece].move_piece(eightx_y)
-				white_to_move = not white_to_move
-
-				# Recurse. If this calculation is the leaf of the search tree, find the position of the board.
-				# Otherwise, call the move function of the opposing side. 
-				position_value = calculate_white_perft(depth, current_depth - 1)
-
-				# restore game state using Memento
-				position_memento.restore_current_position()
-
-				# Update the piece_moves bitboard
-				piece_moves -= move
-
-			if current_depth > 1:
-				generate_moves()
-
-	if depth == current_depth:
-		return nodes
 
 # ****************************************************************************
 # ************************ COMMAND LINE OPTIONS *****************************
