@@ -577,7 +577,7 @@ class BlackPawn(BlackPiece):
 
 		all_black_moves = all_black_moves | self.moves | black_pawn_attacks[self.eightx_y]
 
-	def promote_to_queen(self, x, y):
+	def promote_to_queen(self, eightx_y):
 		global black_pinners
 		global active_black_pieces
 
@@ -702,6 +702,7 @@ def handle_click (event):
 			nps = nodes / ((computer_end - computer_start)/1000.0)
 			logger.log("nodes: " + str(nodes))
 			logger.log("nps: " + str(nps))
+			logger.log("seconds: " + str(((computer_end - computer_start)/1000.0)))
 			logger.log("************************************")
 			nodes = 0
 
@@ -726,8 +727,6 @@ def select_piece(x, y, eightx_y):
 	board_display.highlighted_square = [x, y]
 
 def deselect_piece():
-	#logger.log('deselect_piece')
-
 	x = board_display.highlighted_square[0]
 	y = board_display.highlighted_square[1]
 
@@ -998,17 +997,16 @@ def evaluate_position():
 # ******************************* SEARCH *************************************
 # ****************************************************************************
 def computer_move(computer_plays):
-	#logger.log('computer_move')
-
+		
 	if computer_plays == 'white':
-		calculation_result = calculate_white_move(3, 3)
+		calculation_result = calculate_white_move(3, 3, -20000, 20000)
 
 		# Calculate_white_move will return either -1 or a dictionary containing instructions for moving. =1 means checkmate.
 		if calculation_result == -1: # Checkmate
 			print("Checkmate has occurred. Black wins.")
 
 	elif computer_plays == 'black':
-		calculation_result = calculate_black_move(3, 3)
+		calculation_result = calculate_black_move(3, 3, -20000, 20000)
 
 		# Calculate_black_move will return either -1 or a dictionary containing instructions for moving. -1 means checkmate.
 		if calculation_result == -1: # Checkmate
@@ -1022,18 +1020,19 @@ def computer_move(computer_plays):
 	board_display.selected = best_move_piece
 	move_selected_piece(best_move)
 
-def calculate_white_move(depth, current_depth):
+def calculate_white_move(depth, current_depth, alpha, beta):
 	global white_to_move
+
 	# store the current position, as well as the last move variables (for en passant detection)
 	position_memento = PositionMemento()
 	generate_moves()
 
-	# Loop through all pieces' moves
-	current_active_white_pieces = active_white_pieces + [1<<30]
-
 	# Initialize the best_move_piece as an impossible value, to allow detection of checkmate
 	best_move_piece = -1
 	best_position_value = -20000
+
+	# Loop through all pieces' moves
+	current_active_white_pieces = active_white_pieces + [1<<30]
 
 	for piece in current_active_white_pieces:
 		piece_moves = pieces[piece].moves
@@ -1041,15 +1040,9 @@ def calculate_white_move(depth, current_depth):
 		while piece_moves > 0:
 			# Because of how negative numbers are stored, the bitwise and of a number and its negative will equal the smallest bit in the number.
 			move = piece_moves & -piece_moves
-			eightx_y = bit_significance_mapping[move]
 
 			# Make move and return value of board (without graphics)
-			""" USEFUL DEBUGGING CODE
-			indentation=' ' * ((depth-current_depth)*2)
-			print(indentation, 'Piece:', bit_significance_mapping[piece], 'Move:', bit_significance_mapping[move])
-			"""
-
-			pieces[piece].move_piece(eightx_y)
+			pieces[piece].move_piece(bit_significance_mapping[move])
 
 			# Recurse. If this calculation is the leaf of the search tree, find the position of the board.
 			# Otherwise, call the move function of the opposing side. 
@@ -1057,23 +1050,39 @@ def calculate_white_move(depth, current_depth):
 				# Calculate the position of the board
 				position_value = evaluate_position()
 				position_memento.restore_current_position()
+
 			else:
 				white_to_move = not white_to_move
-				position_value = calculate_black_move(depth, current_depth - 1)
+				position_value = calculate_black_move(depth, current_depth - 1, alpha, beta)
 				position_memento.restore_current_position()
 
 			# compare value of move with previous high move value
 			if position_value > best_position_value:
 				best_position_value = position_value
 				best_move_piece = piece
-				best_move_eightx_y = eightx_y
+				best_move_eightx_y = bit_significance_mapping[move]
+
+			# Alpha beta logic
+			if position_value > alpha:
+				alpha = position_value
+
+			if beta <= alpha:
+				if depth != current_depth: # Not root node
+					if best_move_piece == -1: # Checkmate has occurred.
+						return -20000
+					else:
+						return best_position_value
+				else: # root node
+					if best_move_piece == -1: # Checkmate has occurred.
+						return -1
+					else: 
+						return {"best_move_piece": best_move_piece, "best_move": best_move_eightx_y}
 
 			# Update the piece_moves bitboard
 			piece_moves -= move
 
 		if current_depth > 0:
 			generate_moves()
-
 
 	# For any node but the root of the tree, the function should return the calculate value of the position.
 	# For the root node of the tree, the function should return a piece index, and the x, y values of the best move.
@@ -1090,7 +1099,7 @@ def calculate_white_move(depth, current_depth):
 		else: 
 			return {"best_move_piece": best_move_piece, "best_move": best_move_eightx_y}
 
-def calculate_black_move(depth, current_depth):
+def calculate_black_move(depth, current_depth, alpha, beta):
 	global white_to_move
 	# store the current position, as well as the last move variables (for en passant detection)
 	position_memento = PositionMemento()
@@ -1110,15 +1119,9 @@ def calculate_black_move(depth, current_depth):
 		while piece_moves > 0:
 			# Because of how negative numbers are stored, the bitwise and of a number and its negative will equal the smallest bit in the number.
 			move = piece_moves & -piece_moves
-			eightx_y = bit_significance_mapping[move]
-
+			
 			# Make move and return value of board (without graphics)
-			""" USEFUL DEBUGGING CODE
-			indentation=' ' * ((depth-current_depth)*2)
-			print(indentation, 'Piece:', bit_significance_mapping[piece], 'Move:', bit_significance_mapping[move])
-			"""
-
-			pieces[piece].move_piece(eightx_y)
+			pieces[piece].move_piece(bit_significance_mapping[move])
 
 			# Recurse. If this calculation is the leaf of the search tree, find the position of the board.
 			# Otherwise, call the move function of the opposing side. 
@@ -1128,14 +1131,30 @@ def calculate_black_move(depth, current_depth):
 				position_memento.restore_current_position()
 			else:
 				white_to_move = not white_to_move
-				position_value = calculate_white_move(depth, current_depth - 1)
+				position_value = calculate_white_move(depth, current_depth - 1, alpha, beta)
 				position_memento.restore_current_position()
 
 			# compare value of move with previous high move value
 			if position_value < best_position_value:
 				best_position_value = position_value
 				best_move_piece = piece
-				best_move_eightx_y = eightx_y
+				best_move_eightx_y = bit_significance_mapping[move]
+
+			# Alpha beta logic
+			if position_value < beta:
+				beta = position_value
+
+			if beta <= alpha:
+				if depth != current_depth: # Not root node
+					if best_move_piece == -1: # Checkmate has occurred.
+						return -20000
+					else:
+						return best_position_value
+				else: # root node
+					if best_move_piece == -1: # Checkmate has occurred.
+						return -1
+					else: 
+						return {"best_move_piece": best_move_piece, "best_move": best_move_eightx_y}
 
 			# Update the piece_moves bitboard
 			piece_moves -= move
@@ -1192,10 +1211,9 @@ def calculate_white_perft(depth, current_depth):
 
 				# Because of how negative numbers are stored, the bitwise and of a number and its negative will equal the smallest bit in the number.
 				move = piece_moves & -piece_moves
-				eightx_y = bit_significance_mapping[move]
 
 				# Make move and return value of board (without graphics)
-				pieces[piece].move_piece(eightx_y)
+				pieces[piece].move_piece(bit_significance_mapping[move])
 				white_to_move = not white_to_move
 
 				# Recurse. If this calculation is the leaf of the search tree, find the position of the board.
@@ -1210,7 +1228,6 @@ def calculate_white_perft(depth, current_depth):
 
 			if current_depth > 1:
 				generate_moves()
-
 
 	if depth == current_depth:
 		return nodes
@@ -1247,10 +1264,9 @@ def calculate_black_perft(depth, current_depth):
 
 				# Because of how negative numbers are stored, the bitwise and of a number and its negative will equal the smallest bit in the number.
 				move = piece_moves & -piece_moves
-				eightx_y = bit_significance_mapping[move]
-
+				
 				# Make move and return value of board (without graphics)
-				pieces[piece].move_piece(eightx_y)
+				pieces[piece].move_piece(bit_significance_mapping[move])
 				white_to_move = not white_to_move
 
 				# Recurse. If this calculation is the leaf of the search tree, find the position of the board.
@@ -1647,8 +1663,6 @@ piece_values = {0:0,1<<0:1, 1<<1:1, 1<<2:1, 1<<3:1, 1<<4:1, 1<<5:1, 1<<6:1, 1<<7
 
 nodes = 0
 
-
-
 # ****************************************************************************
 # ************************ COMMAND LINE OPTIONS *****************************
 # ****************************************************************************
@@ -1674,9 +1688,14 @@ elif len(sys.argv) > 1:
 		computer_end = logger.return_timestamp()
 
 		# Record statistics
-		nps = nodes / ((computer_end - computer_start)/1000.0)
+		if computer_end - computer_start > 0:
+			nps = nodes / ((computer_end - computer_start)/1000.0)
+		else:
+			nps = nodes
+
 		logger.log("nodes: " + str(nodes))
 		logger.log("nps: " + str(nps))
+		logger.log("seconds: " + str(((computer_end - computer_start)/1000.0)))
 		logger.log("************************************")
 		nodes = 0
 
@@ -1707,6 +1726,7 @@ elif len(sys.argv) > 1:
 					nps = nodes / ((computer_end - computer_start)/1000.0)
 					logger.log("nodes: " + str(nodes))
 					logger.log("nps: " + str(nps))
+					logger.log("seconds: " + str(((computer_end - computer_start)/1000.0)))
 					logger.log("************************************")
 					nodes = 0
 
@@ -1722,6 +1742,7 @@ elif len(sys.argv) > 1:
 					nps = nodes / ((computer_end - computer_start)/1000.0)
 					logger.log("nodes: " + str(nodes))
 					logger.log("nps: " + str(nps))
+					logger.log("seconds: " + str(((computer_end - computer_start)/1000.0)))
 					logger.log("************************************")
 					nodes = 0
 
