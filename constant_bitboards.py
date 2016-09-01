@@ -43,7 +43,7 @@ def initialize_intervening_square_bitboards():
 	# A1H8 diagonals loop
 	for first_square in range(64):
 		for second_square in range(64):
-			if first_square < second_square and (second_square - first_square) % 9 == 0:
+			if first_square < second_square and (second_square - first_square) % 9 == 0 and first_square % 8 < second_square % 8:
 				key = (1 << first_square) + (1 << second_square)
 
 				i = first_square + 9
@@ -58,7 +58,7 @@ def initialize_intervening_square_bitboards():
 	# A8H1 diagonals loop
 	for first_square in range(64):
 		for second_square in range(64):
-			if first_square < second_square and (second_square - first_square) % 7 == 0:
+			if first_square < second_square and (second_square - first_square) % 7 == 0 and first_square % 8 > second_square % 8:
 				key = (1 << first_square) + (1 << second_square)
 
 				i = first_square + 7
@@ -109,7 +109,7 @@ def initialize_intervening_square_diagonal_bb():
 	# A1H8 diagonals loop
 	for first_square in range(64):
 		for second_square in range(64):
-			if first_square < second_square and (second_square - first_square) % 9 == 0:
+			if first_square < second_square and (second_square - first_square) % 9 == 0 and first_square % 8 < second_square % 8:
 				key = (1 << first_square) + (1 << second_square)
 
 				i = first_square + 9
@@ -120,11 +120,12 @@ def initialize_intervening_square_diagonal_bb():
 
 				if bitboard != 0:
 					intervening_squares_diagonal_bb[key] = bitboard
-
+	
 	# A8H1 diagonals loop
 	for first_square in range(64):
 		for second_square in range(64):
-			if first_square < second_square and (second_square - first_square) % 7 == 0:
+			if first_square < second_square and (second_square - first_square) % 7 == 0 and first_square % 8 > second_square % 8:
+
 				key = (1 << first_square) + (1 << second_square)
 
 				i = first_square + 7
@@ -135,8 +136,7 @@ def initialize_intervening_square_diagonal_bb():
 
 				if bitboard != 0:
 					intervening_squares_diagonal_bb[key] = bitboard
-
-
+	
 
 def initialize_knight_bitboards():
 	for x in range(8):

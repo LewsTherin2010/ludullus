@@ -298,6 +298,7 @@ class WhiteKing(WhitePiece):
 
 			elif pinning_piece in [1<<26, 1<<27, 1<<29] and ((1 << self.eightx_y) + (1 << pinning_piece_position)) in intervening_squares_diagonal_bb:
 				intervening_squares = intervening_squares_diagonal_bb[(1 << self.eightx_y) + (1 << pinning_piece_position)]
+
 			else:
 				continue
 
@@ -531,16 +532,22 @@ class WhitePawn(WhitePiece):
 		self.leave_square(True)
 
 		# Find the highest index for the pieces dict
-		highest_key = max(active_white_pieces + active_black_pieces)
+		highest_key = max(active_white_pieces + active_black_pieces + [1<<30, 1<<31])
+
+		# The new white queen must have an even index.
+		if (bit_significance_mapping[highest_key] + 1) % 1 != 0:
+			highest_key = highest_key << 1
+
+		new_queen_key = highest_key << 1
 
 		# Add a new white queen to the pieces array
-		pieces[1<<(highest_key + 1)] = WhiteQueen(eightx_y // 8, eightx_y % 8, True, 1<<(highest_key + 1), 1)
+		pieces[new_queen_key] = WhiteQueen(eightx_y // 8, eightx_y % 8, True, new_queen_key, 1)
 
 		# Add the queen to the active white pieces
-		active_white_pieces.append(1<<(highest_key + 1))
+		active_white_pieces.append(new_queen_key)
 
 		# Add the queen to the set of white pinners
-		white_pinners.append(1<<(highest_key + 1))
+		white_pinners.append(new_queen_key)
 
 class BlackPawn(BlackPiece):
 	def __init__(self, x, y, white, index, piece_type):
@@ -585,16 +592,22 @@ class BlackPawn(BlackPiece):
 		self.leave_square(True)
 
 		# Find the highest index for the pieces dict
-		highest_key = max(active_white_pieces + active_black_pieces)
+		highest_key = max(active_white_pieces + active_black_pieces + [1<<30, 1<<31])
+
+		# The new black queen must have an odd index.
+		if (bit_significance_mapping[highest_key] + 1) % 1 == 0:
+			highest_key = highest_key << 1
+
+		new_queen_key = highest_key << 1
 
 		# Add a new black queen to the pieces array
-		pieces[1<<(highest_key + 1)] = BlackQueen(eightx_y // 8, eightx_y % 8, False, 1<<(highest_key + 1), 1)
+		pieces[new_queen_key] = BlackQueen(eightx_y // 8, eightx_y % 8, False, new_queen_key, 1)
 
 		# Add the queen to the active black pieces
-		active_black_pieces.append(1<<(highest_key + 1))
+		active_black_pieces.append(new_queen_key)
 
 		# Add the queen to the set of black pinners
-		black_pinners.append(1<<(highest_key + 1))
+		black_pinners.append(new_queen_key)
 
 class PositionMemento():
 	def __init__(self):
@@ -613,7 +626,7 @@ class PositionMemento():
 		self.former_all_black_positions = all_black_positions
 
 		self.piece_positions = {}
-		for piece in piece_indexes:
+		for piece in (active_white_pieces + active_black_pieces + [1<<30, 1<<31]):
 			self.piece_positions[piece] = pieces[piece].eightx_y
 
 		# Store active pieces
@@ -657,8 +670,8 @@ class PositionMemento():
 		all_white_positions = self.former_all_white_positions
 		all_black_positions = self.former_all_black_positions
 
-		for piece in piece_indexes:
-			pieces[piece].eightx_y = self.piece_positions[piece]
+		for piece, position in self.piece_positions.items():		
+			pieces[piece].eightx_y = position
 
 		# Restore pinners
 		white_pinners = self.former_white_pinners[:]
@@ -837,6 +850,10 @@ def generate_moves():
 	# DETECT WHITE PINS ON WHITE PIECES
 	pieces[1<<30].find_pins()
 
+	for pin in pinned_white_pieces:
+		pinned_piece = pin['pinned_piece']
+		pinning_piece = pin['pinning_piece']
+
 	# A pinned piece may only move on the ray between the king and the pinning piece.
 	# Thus, pawns may advance toward a pinning piece, or a bishop may take a queen that pins on the diagonal.
 	for pin in pinned_white_pieces:
@@ -848,8 +865,13 @@ def generate_moves():
 
 		king_position = 1 << (pieces[1<<30].eightx_y)
 
-		# A pinned piece can only move on the ray between the king and the pinning piece.
+		# A pinned piece can only move on the ray between the king and the pinning piece. 
 		potential_moves = intervening_squares_bitboards[king_position + pinning_piece_position] - pinned_piece_position + pinning_piece_position
+
+		# Before removing moves, see if this piece is checking the opposing king, and if so, add it to the checkers array
+		if pieces[pinned_piece].moves & (1 << (pieces[1<<31].eightx_y)) > 1:
+			checker_positions.append(pieces[pinned_piece].eightx_y)
+			checker_types.append(pieces[pinned_piece].type)
 
 		# Update the pinned piece
 		pieces[pinned_piece].moves = pieces[pinned_piece].moves & potential_moves
@@ -871,6 +893,11 @@ def generate_moves():
 		# A pinned piece can only move on the ray between the king and the pinning piece.
 		potential_moves = intervening_squares_bitboards[king_position + pinning_piece_position] - pinned_piece_position + pinning_piece_position
 
+		# Before removing moves, see if this piece is checking the opposing king, and if so, add it to the checkers array
+		if pieces[pinned_piece].moves & (1 << (pieces[1<<30].eightx_y)) > 1:
+			checker_positions.append(pieces[pinned_piece].eightx_y)
+			checker_types.append(pieces[pinned_piece].type)
+
 		# Update the pinned piece
 		pieces[pinned_piece].moves = pieces[pinned_piece].moves & potential_moves
 
@@ -890,7 +917,6 @@ def generate_moves():
 
 			# Calculate the moves that friendly pieces can perform to save the king
 			calculate_check_moves(1<<30)
-
 	else:
 		king_position = 1 << (pieces[1<<31].eightx_y)
 		if all_white_moves & king_position > 0:
@@ -917,7 +943,7 @@ def calculate_check_moves(king):
 		# If there's only one chcker, capturing it is always an option
 		defence_moves += 1 << checker_positions[0]
 
-		# If the single checking piece is not a pawn or a knight, then the checked side can defend also defend my interposing a piece
+		# If the single checking piece is not a pawn or a knight, then the checked side can defend also defend by interposing a piece
 		if checker_types[0] in [1, 2, 3]:
 			if ((1 << pieces[king].eightx_y) + (1 << checker_positions[0])) in intervening_squares_bitboards:
 				defence_moves += intervening_squares_bitboards[(1 << pieces[king].eightx_y) + (1 << checker_positions[0])]
@@ -997,16 +1023,15 @@ def evaluate_position():
 # ******************************* SEARCH *************************************
 # ****************************************************************************
 def computer_move(computer_plays):
-		
 	if computer_plays == 'white':
-		calculation_result = calculate_white_move(3, 3, -20000, 20000)
+		calculation_result = calculate_white_move(4, 4, -20000, 20000)
 
 		# Calculate_white_move will return either -1 or a dictionary containing instructions for moving. =1 means checkmate.
 		if calculation_result == -1: # Checkmate
 			print("Checkmate has occurred. Black wins.")
 
 	elif computer_plays == 'black':
-		calculation_result = calculate_black_move(3, 3, -20000, 20000)
+		calculation_result = calculate_black_move(4, 4, -20000, 20000)
 
 		# Calculate_black_move will return either -1 or a dictionary containing instructions for moving. -1 means checkmate.
 		if calculation_result == -1: # Checkmate
@@ -1031,58 +1056,53 @@ def calculate_white_move(depth, current_depth, alpha, beta):
 	best_move_piece = -1
 	best_position_value = -20000
 
-	# Loop through all pieces' moves
+	# Find all moves for this node.
+	moves = []
 	current_active_white_pieces = active_white_pieces + [1<<30]
-
 	for piece in current_active_white_pieces:
-		piece_moves = pieces[piece].moves
 
+		piece_moves = pieces[piece].moves
 		while piece_moves > 0:
 			# Because of how negative numbers are stored, the bitwise and of a number and its negative will equal the smallest bit in the number.
 			move = piece_moves & -piece_moves
-
-			# Make move and return value of board (without graphics)
-			pieces[piece].move_piece(bit_significance_mapping[move])
-
-			# Recurse. If this calculation is the leaf of the search tree, find the position of the board.
-			# Otherwise, call the move function of the opposing side. 
-			if current_depth == 0:
-				# Calculate the position of the board
-				position_value = evaluate_position()
-				position_memento.restore_current_position()
-
-			else:
-				white_to_move = not white_to_move
-				position_value = calculate_black_move(depth, current_depth - 1, alpha, beta)
-				position_memento.restore_current_position()
-
-			# compare value of move with previous high move value
-			if position_value > best_position_value:
-				best_position_value = position_value
-				best_move_piece = piece
-				best_move_eightx_y = bit_significance_mapping[move]
-
-			# Alpha beta logic
-			if position_value > alpha:
-				alpha = position_value
-
-			if beta <= alpha:
-				if depth != current_depth: # Not root node
-					if best_move_piece == -1: # Checkmate has occurred.
-						return -20000
-					else:
-						return best_position_value
-				else: # root node
-					if best_move_piece == -1: # Checkmate has occurred.
-						return -1
-					else: 
-						return {"best_move_piece": best_move_piece, "best_move": best_move_eightx_y}
-
-			# Update the piece_moves bitboard
+			moves.append([piece, bit_significance_mapping[move]])
 			piece_moves -= move
 
-		if current_depth > 0:
-			generate_moves()
+	for move in moves:
+		# Make move and return value of board (without graphics)
+		pieces[move[0]].move_piece(move[1])
+
+		# Recurse. If this calculation is the leaf of the search tree, find the position of the board.
+		# Otherwise, call the move function of the opposing side. 
+		if current_depth == 0:
+			position_value = evaluate_position()
+		else:
+			white_to_move = not white_to_move
+			position_value = calculate_black_move(depth, current_depth - 1, alpha, beta)
+
+		position_memento.restore_current_position()
+
+		# compare value of move with previous high move value
+		if position_value > best_position_value:
+			best_position_value = position_value
+			best_move_piece = move[0]
+			best_move_eightx_y = move[1]
+
+		# Alpha beta logic
+		if position_value > alpha:
+			alpha = position_value
+
+		if beta <= alpha:
+			if depth != current_depth: # Not root node
+				if best_move_piece == -1: # Checkmate has occurred.
+					return -20000
+				else:
+					return best_position_value
+			else: # root node
+				if best_move_piece == -1: # Checkmate has occurred.
+					return -1
+				else: 
+					return {"best_move_piece": best_move_piece, "best_move": best_move_eightx_y}
 
 	# For any node but the root of the tree, the function should return the calculate value of the position.
 	# For the root node of the tree, the function should return a piece index, and the x, y values of the best move.
@@ -1101,67 +1121,62 @@ def calculate_white_move(depth, current_depth, alpha, beta):
 
 def calculate_black_move(depth, current_depth, alpha, beta):
 	global white_to_move
+
 	# store the current position, as well as the last move variables (for en passant detection)
 	position_memento = PositionMemento()
 	generate_moves()
-
-	# Loop through all pieces' moves
-	# Add the king
-	current_active_black_pieces = active_black_pieces + [1<<31]
-
+	
 	# Initialize the best_move_piece as an impossible value, to allow detection of checkmate
 	best_move_piece = -1
 	best_position_value = 20000
 
+	# Find all moves for this node.
+	moves = []
+	current_active_black_pieces = active_black_pieces + [1<<31]
 	for piece in current_active_black_pieces:
-		piece_moves = pieces[piece].moves
 
+		piece_moves = pieces[piece].moves
 		while piece_moves > 0:
 			# Because of how negative numbers are stored, the bitwise and of a number and its negative will equal the smallest bit in the number.
 			move = piece_moves & -piece_moves
-			
-			# Make move and return value of board (without graphics)
-			pieces[piece].move_piece(bit_significance_mapping[move])
+			moves.append([piece, bit_significance_mapping[move]])
+			piece_moves = piece_moves - move
 
-			# Recurse. If this calculation is the leaf of the search tree, find the position of the board.
-			# Otherwise, call the move function of the opposing side. 
-			if current_depth == 0:
-				# Calculate the position of the board
-				position_value = evaluate_position()
-				position_memento.restore_current_position()
-			else:
-				white_to_move = not white_to_move
-				position_value = calculate_white_move(depth, current_depth - 1, alpha, beta)
-				position_memento.restore_current_position()
+	for move in moves:			
+		# Make move and return value of board (without graphics)
+		pieces[move[0]].move_piece(move[1])
 
-			# compare value of move with previous high move value
-			if position_value < best_position_value:
-				best_position_value = position_value
-				best_move_piece = piece
-				best_move_eightx_y = bit_significance_mapping[move]
+		# Recurse. If this calculation is the leaf of the search tree, find the position of the board.
+		# Otherwise, call the move function of the opposing side. 
+		if current_depth == 0:
+			position_value = evaluate_position()
+		else:
+			white_to_move = not white_to_move
+			position_value = calculate_white_move(depth, current_depth - 1, alpha, beta)
 
-			# Alpha beta logic
-			if position_value < beta:
-				beta = position_value
+		position_memento.restore_current_position()
 
-			if beta <= alpha:
-				if depth != current_depth: # Not root node
-					if best_move_piece == -1: # Checkmate has occurred.
-						return -20000
-					else:
-						return best_position_value
-				else: # root node
-					if best_move_piece == -1: # Checkmate has occurred.
-						return -1
-					else: 
-						return {"best_move_piece": best_move_piece, "best_move": best_move_eightx_y}
+		# compare value of move with previous high move value
+		if position_value < best_position_value:
+			best_position_value = position_value
+			best_move_piece = move[0]
+			best_move_eightx_y = move[1]
 
-			# Update the piece_moves bitboard
-			piece_moves -= move
+		# Alpha beta logic
+		if position_value < beta:
+			beta = position_value
 
-		if current_depth > 0:
-			generate_moves()
-
+		if beta <= alpha:
+			if depth != current_depth: # Not root node
+				if best_move_piece == -1: # Checkmate has occurred.
+					return -20000
+				else:
+					return best_position_value
+			else: # root node
+				if best_move_piece == -1: # Checkmate has occurred.
+					return -1
+				else: 
+					return {"best_move_piece": best_move_piece, "best_move": best_move_eightx_y}
 
 	# For any node but the root of the tree, the function should return the calculate value of the position.
 	# For the root node of the tree, the function should return a piece index, and the x, y values of the best move.
@@ -1201,33 +1216,29 @@ def calculate_white_perft(depth, current_depth):
 		position_memento = PositionMemento()
 		generate_moves()
 
-		# Loop through all pieces' moves
+		# Get all moves for this node.
+		moves = []
 		current_active_white_pieces = active_white_pieces + [1<<30]
 
 		for piece in current_active_white_pieces:
 			piece_moves = pieces[piece].moves
-
 			while piece_moves > 0:
-
 				# Because of how negative numbers are stored, the bitwise and of a number and its negative will equal the smallest bit in the number.
 				move = piece_moves & -piece_moves
-
-				# Make move and return value of board (without graphics)
-				pieces[piece].move_piece(bit_significance_mapping[move])
-				white_to_move = not white_to_move
-
-				# Recurse. If this calculation is the leaf of the search tree, find the position of the board.
-				# Otherwise, call the move function of the opposing side. 
-				position_value = calculate_black_perft(depth, current_depth - 1)
-			
-				# restore game state using Memento
-				position_memento.restore_current_position()
-
-				# Update the piece_moves bitboard
+				moves.append([piece, bit_significance_mapping[move]])
 				piece_moves -= move
 
-			if current_depth > 1:
-				generate_moves()
+		for move in moves:
+			# Make move and return value of board (without graphics)
+			pieces[move[0]].move_piece(move[1])
+			white_to_move = not white_to_move
+
+			# Recurse. If this calculation is the leaf of the search tree, find the position of the board.
+			# Otherwise, call the move function of the opposing side. 
+			position_value = calculate_black_perft(depth, current_depth - 1)
+		
+			# restore game state using Memento
+			position_memento.restore_current_position()
 
 	if depth == current_depth:
 		return nodes
@@ -1253,34 +1264,29 @@ def calculate_black_perft(depth, current_depth):
 		position_memento = PositionMemento()
 		generate_moves()
 
-		# Loop through all pieces' moves
-		# Add the king
+		# Get all moves for this node.
+		moves = []
 		current_active_black_pieces = active_black_pieces + [1<<31]
 
 		for piece in current_active_black_pieces:
 			piece_moves = pieces[piece].moves
-
 			while piece_moves > 0:
-
 				# Because of how negative numbers are stored, the bitwise and of a number and its negative will equal the smallest bit in the number.
 				move = piece_moves & -piece_moves
-				
-				# Make move and return value of board (without graphics)
-				pieces[piece].move_piece(bit_significance_mapping[move])
-				white_to_move = not white_to_move
-
-				# Recurse. If this calculation is the leaf of the search tree, find the position of the board.
-				# Otherwise, call the move function of the opposing side. 
-				position_value = calculate_white_perft(depth, current_depth - 1)
-
-				# restore game state using Memento
-				position_memento.restore_current_position()
-
-				# Update the piece_moves bitboard
+				moves.append([piece, bit_significance_mapping[move]])
 				piece_moves -= move
 
-			if current_depth > 1:
-				generate_moves()
+		for move in moves:
+			# Make move and return value of board
+			pieces[move[0]].move_piece(move[1])
+			white_to_move = not white_to_move
+
+			# Recurse. If this calculation is the leaf of the search tree, find the position of the board.
+			# Otherwise, call the move function of the opposing side. 
+			position_value = calculate_white_perft(depth, current_depth - 1)
+
+			# restore game state using Memento
+			position_memento.restore_current_position()
 
 	if depth == current_depth:
 		return nodes
@@ -1539,8 +1545,8 @@ def initialize_with_fen_position(fen_string):
 		print('The fullmove number field must be an integer.')
 
 	# The arrays that list all pieces and all active pieces need to be changed from their default values, which were set up to reflect the initial state of the board.
-	inactive_white_pieces = white_pawn_indexes + white_rook_indexes + white_king_indexes + white_bishop_indexes + white_queen_indexes + white_king_indexes
-	inactive_black_pieces = black_pawn_indexes + black_rook_indexes + black_king_indexes + black_bishop_indexes + black_queen_indexes + black_king_indexes
+	inactive_white_pieces = white_pawn_indexes + white_rook_indexes + white_king_indexes + white_bishop_indexes + white_queen_indexes + white_king_indexes + white_knight_indexes
+	inactive_black_pieces = black_pawn_indexes + black_rook_indexes + black_king_indexes + black_bishop_indexes + black_queen_indexes + black_king_indexes + black_knight_indexes
 
 	for inactive_piece in inactive_white_pieces:
 		active_white_pieces.remove(inactive_piece)
@@ -1659,7 +1665,17 @@ all_piece_positions = 0
 third_rank_shifted_to_fourth = 0 # For use in calculating white pawns' first moves
 sixth_rank_shifted_to_fifth = 0 # For use in calculating black pawns' first moves
 
-piece_values = {0:0,1<<0:1, 1<<1:1, 1<<2:1, 1<<3:1, 1<<4:1, 1<<5:1, 1<<6:1, 1<<7:1, 1<<8:-1, 1<<9:-1, 1<<10:-1, 1<<11:-1, 1<<12:-1, 1<<13:-1, 1<<14:-1, 1<<15:-1, 1<<16:5, 1<<17:5, 1<<18:-5, 1<<19:-5, 1<<20:3, 1<<21:3, 1<<22:-3, 1<<23:-3, 1<<24:3, 1<<25:3, 1<<26:-3, 1<<27:-3, 1<<28: 9, 1<<29:-9, 1<<30:10000, 1<<31:-10000}
+# NOTE: This includes extra indexes for queeen promotions. All extra white queens are greater than 31, and they are even. All extra black queens are greater than 32, and they ard odd.
+piece_values = {0:0,1<<0:1, 1<<1:1, 1<<2:1, 1<<3:1, 1<<4:1, 1<<5:1, 1<<6:1, 1<<7:1 # White pawns
+, 1<<8:-1, 1<<9:-1, 1<<10:-1, 1<<11:-1, 1<<12:-1, 1<<13:-1, 1<<14:-1, 1<<15:-1 # Black pawns
+, 1<<16:5, 1<<17:5, 1<<18:-5, 1<<19:-5 # Rooks
+, 1<<20:3, 1<<21:3, 1<<22:-3, 1<<23:-3 # Knights
+, 1<<24:3, 1<<25:3, 1<<26:-3, 1<<27:-3 # Bishops
+, 1<<28: 9, 1<<29:-9 # Original queens
+, 1<<30:10000, 1<<31:-10000 # Kings
+, 1<<32:9, 1<<34:9, 1<<36:9, 1<<38:9 # Extra white queens (4 should be enough, don't you think?)
+, 1<<33:-9, 1<<35:-9, 1<<37:-9, 1<<40:-9 # Extra black queens (4 should be enough, don't you think?)
+}
 
 nodes = 0
 
@@ -1771,6 +1787,7 @@ elif len(sys.argv) > 1:
 		else:
 			nps = nodes / ((end - start)/1000.0)
 			print('Nodes:', nodes, ', NPS:', int(nps), 'Seconds:', round(((end - start)/1000),2))
+
 else: 
 	print('Please initialize the program with one of the following options:')
 	print('1: python chessboard.py {white/black}')
