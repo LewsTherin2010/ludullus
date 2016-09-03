@@ -8,7 +8,7 @@ Screenshot
 
 Features
 ========
-Right now the engine is pretty weak, but it's in active development, so it's getting stronger pretty quickly.
+Right now the engine is pretty weak, but it's in active development, and it's getting stronger pretty quickly.
 
 1. Bitboard-based move generation.
 2. A custom UI.
@@ -25,7 +25,7 @@ Once the files have been checked out, it can be started with the following comma
 
 "python chessboard.py fen [FEN] {white/black}" - Begins the program in a position dictated by a string in Forsyth-Edwards notation. (https://www.chessclub.com/user/help/PGN-spec, section 16.1) Optionally, the computer will play black or white.
 
-"python chessboard.py perft [FEN] [DEPTH] - This command with start the program in a position dictated by a FEN string, and calculate perft to a specific depth"
+"python chessboard.py perft [FEN] [DEPTH] - This command will start the program in a position dictated by a FEN string, and calculate perft to a specific depth"
 
 Limitations
 ===========
@@ -49,7 +49,7 @@ Whither Ludullus?
 
 2. A big reason for switching to a string representation is the use of a hash table, which will hopefully allow me to add a couple plies of depth to the search.
 
-3. The engine has a huge problem with horizon effects at the moment. For example, right now it is capable of playing a game within a reasonable time frame using an alpha-beta search at depth 5. But, this usually means that the last move that the computer sees has been played by its opponent. It happens quite often, then, that the computer thinks that, whatever it does, it's going to end up losing material, and so the computer becomes indifferent to the move it has to make now, and blunders. I'm hoping that implementing iterative deepening, which is typicallly used to speed up the alpha-beta search, will adress this problem as well. If the moves of the first ply are ordered by position value, and then searched to whatever depth, then if the computer is ultimately indifferent, because it thinks that material will always be lost, then at least it will choose a move that will not immediately cause it to lose material. I think the canonical method of dealing with the horizon effect is a quiescence search, but honestly that sounds like overkill for this simple problem.
+3. The engine has a huge problem with horizon effects at the moment. For example, right now it is capable of playing a game within a reasonable time frame using an alpha-beta search at depth 4. But, this usually means that the last move that the computer sees has been played by its opponent. It happens quite often, then, that the computer thinks that, whatever it does, it's going to end up losing material, and so the computer becomes indifferent to the move it has to make now, and blunders. I'm hoping that implementing iterative deepening, which is typicallly used to speed up the alpha-beta search, will address this problem as well. If the moves of the first ply are ordered by position value, and then searched to whatever depth, then even if the computer is ultimately indifferent, at least it will not choose a move that will immediately cause it to lose material. I think the canonical method of dealing with the horizon effect is a quiescence search, but honestly that sounds like overkill for this simple problem.
 
 4. Right now, running this program on my computer does not use all available processing power. I think it's just using one core, and I know my machine has 4 cores. So, I think I can quadruple performance by working more intelligently with the machine.
 
