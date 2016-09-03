@@ -22,9 +22,6 @@ class WhitePiece():
 		squares[self.eightx_y] = self.index
 
 	def move_piece(self, eightx_y):
-		global last_move_piece_type
-		global last_move_origin_eightx_y
-		global last_move_destination_eightx_y
 		global halfmove_clock
 		global all_white_positions
 		global squares
@@ -42,10 +39,9 @@ class WhitePiece():
 		if squares[eightx_y] != 0:
 			pieces[squares[eightx_y]].leave_square(True)
 
-		# Reset last move variables
-		last_move_piece_type = self.type
-		last_move_origin_eightx_y = self.eightx_y
-		last_move_destination_eightx_y = eightx_y
+		"""
+		DON"T FORGET TO POPULATE THE EN PASSANT SQUARE!!!
+		"""
 
 		#update current piece coordinates
 		self.eightx_y = eightx_y
@@ -133,9 +129,6 @@ class BlackPiece():
 	def move_piece(self, eightx_y):
 		global en_passant_pieces
 		global en_passant_victim
-		global last_move_piece_type
-		global last_move_origin_eightx_y
-		global last_move_destination_eightx_y
 		global halfmove_clock
 		global all_black_positions
 		global squares
@@ -153,10 +146,9 @@ class BlackPiece():
 		if squares[eightx_y] != 0:
 			pieces[squares[eightx_y]].leave_square(True)
 
-		# Reset last move variables
-		last_move_piece_type = self.type
-		last_move_origin_eightx_y = self.eightx_y
-		last_move_destination_eightx_y = eightx_y
+		"""
+		DON"T FORGET TO POPULATE THE EN PASSANT SQUARE!!!
+		"""
 
 		#update current piece coordinates
 		self.eightx_y = eightx_y
@@ -494,6 +486,9 @@ class WhitePawn(WhitePiece):
 
 	def move_piece(self, eightx_y):
 		global halfmove_clock
+		"""
+		DON"T FORGET TO POPULATE THE EN PASSANT SQUARE!!!
+		"""
 
 		# ******* EN PASSANT ******* #
 		# check to see if this pawn is performing en passant, and if so, remove the en passant victim from the board.
@@ -555,6 +550,9 @@ class BlackPawn(BlackPiece):
 
 	def move_piece(self, eightx_y):
 		global halfmove_clock
+		"""
+		DON"T FORGET TO POPULATE THE EN PASSANT SQUARE!!!
+		"""
 
 		# ******* EN PASSANT ******* #
 		# check to see if this pawn is performing en passant, and if so, remove the en passant victim from the board.
@@ -613,9 +611,6 @@ class PositionMemento():
 	def __init__(self):
 		# Store last-move variables
 		self.former_white_to_move = white_to_move
-		self.former_last_move_piece_type = last_move_piece_type
-		self.former_last_move_origin_eightx_y = last_move_origin_eightx_y
-		self.former_last_move_destination_eightx_y = last_move_destination_eightx_y
 		self.former_halfmove_clock = halfmove_clock
 
 		# Store castle variables
@@ -644,9 +639,6 @@ class PositionMemento():
 		global active_white_pieces
 		global active_black_pieces
 		global white_to_move
-		global last_move_piece_type
-		global last_move_origin_eightx_y
-		global last_move_destination_eightx_y
 		global castles
 		global halfmove_clock
 		global all_white_positions
@@ -658,9 +650,6 @@ class PositionMemento():
 
 		# Restore last-move variables
 		white_to_move = self.former_white_to_move
-		last_move_piece_type = self.former_last_move_piece_type
-		last_move_origin_eightx_y = self.former_last_move_origin_eightx_y
-		last_move_destination_eightx_y = self.former_last_move_destination_eightx_y
 		halfmove_clock = self.former_halfmove_clock
 
 		# Restore castle variables
@@ -785,13 +774,13 @@ def calculate_white_pawn_move(eightx_y):
 
 	# The precalculated "third_rank_shifted_to_fourth" is used to prevent a pawn from hopping over a piece on its first move.
 	if eightx_y % 8 == 1:
-		moves = moves & ~third_rank_shifted_to_fourth
+		moves &= ~third_rank_shifted_to_fourth
 
 	# Deal with pawn attacks
 	moves += white_pawn_attacks[eightx_y] & all_black_positions
 
-	# Because "all_white_moves"  is really just a list of squares the black king can't move onto, add all potential pawn attacks to it.
-	all_white_moves = all_white_moves | moves | white_pawn_attacks[eightx_y]
+	# Because "all_white_moves"  is really just a list of squares the black king can't move onto, add all potential pawn attacks to it, but not the regular pawn moves.
+	all_white_moves |= white_pawn_attacks[eightx_y]
 
 	# Add this piece's moves to the move list
 	while moves >= 0:
@@ -800,12 +789,10 @@ def calculate_white_pawn_move(eightx_y):
 		moves -= move
 
 def calculate_white_knight_move(eightx_y):
-	# The board stores 64 bitboards for knight moves, 1 for the set of moves a knight can make from each square.
 	global all_white_moves
+	global move_list
 
 	moves = knight_move_bitboards[eightx_y] & ~all_white_positions
-
-	#Update the all_white_moves bitboard
 	all_white_moves = all_white_moves | knight_move_bitboards[eightx_y]
 
 	# Add this piece's moves to the move list
@@ -815,30 +802,26 @@ def calculate_white_knight_move(eightx_y):
 		moves -= move
 
 def calculate_white_bishop_move(eightx_y):
-	# This is arcane. It's based on the same bitboard methodology as the rank and file stuff. But the diagonals are all different lengths, so there's more to it.
+	# This is based on the same bitboard methodology as the rank and file stuff. But the diagonals are all different lengths, whereas the ranks and files are all of equal length.
 	global all_white_moves
 	global move_list
 
 	# Calculate the a1_h8 diagonal moves
 	bitshift_amount = a1_h8_bitshift_amounts[eightx_y]
-	occupancy = (all_piece_positions >> bitshift_amount) & 0b00001000000001000000001000000001000000001000000001000000001000000001
+	occupancy = (all_piece_positions >> bitshift_amount) & 0b1000000001000000001000000001000000001000000001000000001000000001
 	potential_moves = (a1_h8_diagonal_bitboards[occupancy][a1_h8_positions[eightx_y]] & a1_h8_lengths[eightx_y]) << bitshift_amount
 
-	moves = potential_moves & ~all_white_positions
-	
 	# Calculate the a8_h1 diagonal moves
 	bitshift_amount = a8_h1_bitshift_amounts[eightx_y]
 	if bitshift_amount < 0:
-		occupancy = (all_piece_positions << abs(bitshift_amount)) & 0b0000000100000010000001000000100000010000001000000100000010000000
-		potential_moves = (a8_h1_diagonal_bitboards[occupancy][a8_h1_positions[eightx_y]] & a8_h1_lengths[eightx_y]) >> abs(bitshift_amount)
+		occupancy = (all_piece_positions << abs(bitshift_amount)) & 0b100000010000001000000100000010000001000000100000010000000
+		potential_moves |= ((a8_h1_diagonal_bitboards[occupancy][a8_h1_positions[eightx_y]] & a8_h1_lengths[eightx_y]) >> abs(bitshift_amount))
 	else:
-		occupancy = (all_piece_positions >> bitshift_amount) & 0b0000000100000010000001000000100000010000001000000100000010000000
-		potential_moves = (a8_h1_diagonal_bitboards[occupancy][a8_h1_positions[eightx_y]] & a8_h1_lengths[eightx_y]) << bitshift_amount
+		occupancy = (all_piece_positions >> bitshift_amount) & 0b100000010000001000000100000010000001000000100000010000000
+		potential_moves |= ((a8_h1_diagonal_bitboards[occupancy][a8_h1_positions[eightx_y]] & a8_h1_lengths[eightx_y]) << bitshift_amount)
 
-	moves = moves | (potential_moves & ~all_white_positions)
-
-	# Update the all_white_moves bitboard
-	all_white_moves = all_white_moves | moves
+	moves = potential_moves & ~all_white_positions
+	all_white_moves |= potential_moves
 
 	# Add this piece's moves to the move list
 	while moves >= 0:
@@ -850,18 +833,16 @@ def calculate_white_rook_move(eightx_y):
 	global all_white_moves
 	global move_list
 
- 	# Calculate file moves
+ 	# File moves
 	occupancy = (all_piece_positions >> (eightx_y - (eightx_y % 8))) & 0b11111111
 	potential_moves = file_bitboards[eightx_y % 8][occupancy] << (eightx_y - (eightx_y % 8))
+
+	# Rank moves
+	occupancy = (all_piece_positions >> (eightx_y % 8)) & 0b100000001000000010000000100000001000000010000000100000001
+	potential_moves |= (rank_bitboards[occupancy][eightx_y // 8] << (eightx_y % 8))
+
 	moves = potential_moves & ~all_white_positions
-
-	# Calculate rank moves
-	occupancy = (all_piece_positions >> (eightx_y % 8)) & 0b0000000100000001000000010000000100000001000000010000000100000001
-	potential_moves = rank_bitboards[occupancy][eightx_y // 8] << (eightx_y % 8)
-	moves = moves | (potential_moves & ~all_white_positions)
-
-	# Update the all_white_moves bitboard
-	all_white_moves = all_white_moves | moves
+	all_white_moves = all_white_moves | potential_moves
 
 	# Add this piece's moves to the move list
 	while moves >= 0:
@@ -875,32 +856,30 @@ def calculate_white_queen_move(eightx_y):
 
 	# Calculate the a1_h8 diagonal moves
 	bitshift_amount = a1_h8_bitshift_amounts[eightx_y]
-	occupancy = (all_piece_positions >> bitshift_amount) & 0b00001000000001000000001000000001000000001000000001000000001000000001
+	occupancy = (all_piece_positions >> bitshift_amount) & 0b1000000001000000001000000001000000001000000001000000001000000001
 	potential_moves = (a1_h8_diagonal_bitboards[occupancy][a1_h8_positions[eightx_y]] & a1_h8_lengths[eightx_y]) << bitshift_amount
-	moves = potential_moves & ~all_white_positions
 	
 	# Calculate the a8_h1 diagonal moves
 	bitshift_amount = a8_h1_bitshift_amounts[eightx_y]
 	if bitshift_amount < 0:
-		occupancy = (all_piece_positions << abs(bitshift_amount)) & 0b0000000100000010000001000000100000010000001000000100000010000000
-		potential_moves = (a8_h1_diagonal_bitboards[occupancy][a8_h1_positions[eightx_y]] & a8_h1_lengths[eightx_y]) >> abs(bitshift_amount)
+		occupancy = (all_piece_positions << abs(bitshift_amount)) & 0b100000010000001000000100000010000001000000100000010000000
+		potential_moves |= ((a8_h1_diagonal_bitboards[occupancy][a8_h1_positions[eightx_y]] & a8_h1_lengths[eightx_y]) >> abs(bitshift_amount))
 	else:
-		occupancy = (all_piece_positions >> bitshift_amount) & 0b0000000100000010000001000000100000010000001000000100000010000000
-		potential_moves = (a8_h1_diagonal_bitboards[occupancy][a8_h1_positions[eightx_y]] & a8_h1_lengths[eightx_y]) << bitshift_amount
-	moves = moves | (potential_moves & ~all_white_positions)
+		occupancy = (all_piece_positions >> bitshift_amount) & 0b100000010000001000000100000010000001000000100000010000000
+		potential_moves |= ((a8_h1_diagonal_bitboards[occupancy][a8_h1_positions[eightx_y]] & a8_h1_lengths[eightx_y]) << bitshift_amount)
 
  	# Calculate file moves
 	occupancy = (all_piece_positions >> (eightx_y - (eightx_y % 8))) & 0b11111111
-	potential_moves = file_bitboards[eightx_y % 8][occupancy] << (eightx_y - (eightx_y % 8))
-	moves = moves | (potential_moves & ~all_white_positions)
+	potential_moves |= (file_bitboards[eightx_y % 8][occupancy] << (eightx_y - (eightx_y % 8)))
 
 	# Calculate rank moves
-	occupancy = (all_piece_positions >> (eightx_y % 8)) & 0b0000000100000001000000010000000100000001000000010000000100000001
-	potential_moves = rank_bitboards[occupancy][eightx_y // 8] << (eightx_y % 8)
-	moves = moves | (potential_moves & ~all_white_positions)
+	occupancy = (all_piece_positions >> (eightx_y % 8)) & 0b100000001000000010000000100000001000000010000000100000001
+	potential_moves |= (rank_bitboards[occupancy][eightx_y // 8] << (eightx_y % 8))
 
+	moves = potential_moves & ~all_white_positions
+	
 	# Update the all_white_moves bitboard
-	all_white_moves = all_white_moves | moves
+	all_white_moves = all_white_moves | potential_moves
 
 	# Add this piece's moves to the move list
 	while moves >= 0:
@@ -909,27 +888,172 @@ def calculate_white_queen_move(eightx_y):
 		moves -= move
 
 def calculate_white_king_move(eightx_y):
+	global move_list
+
 	# Make sure not to move onto a square the opposing king can move onto
 	# Make sure not to move onto a square that an enemy piece may move onto
 	# Remove friendly pieces from potential moves
-	self.moves = king_move_bitboards[self.eightx_y] & ~(king_move_bitboards[pieces[1<<31].eightx_y] | all_black_moves | all_white_positions)
+	moves = king_move_bitboards[eightx_y] & ~(king_move_bitboards[black_king_location] | all_black_moves | all_white_positions)
 
 	# Column A castle
 	# If neither the king nor the rook has moved and relevant squares are empty
-	if castles & 0b0100 > 0 and all_piece_positions & 0x1010100 == 0:
+	if castles & 0b0100 > 0 and all_piece_positions & 0b1000000010000000100000000 == 0:
 		# If the king is not in check and would not have to move through check
-		if all_black_moves & 0x101010000 == 0:
-			self.moves += 0x10000
+		if all_black_moves & 0b100000001000000010000000000000000 == 0:
+			moves += 1<<16
 
 	# Column H castle
 	# If neither the king nor the rook has moved and relevant squares are empty
-	if castles & 0b1000 > 0 and all_piece_positions & 0x1010000000000 == 0:
+	if castles & 0b1000 > 0 and all_piece_positions & 0b1000000010000000000000000000000000000000000000000 == 0:
 		# If the king is not in check and would not have to move through check
-		if all_black_moves & 0x1010000000000 == 0:
-			self.moves += 1<<48
+		if all_black_moves & 0b1000000010000000000000000000000000000000000000000 == 0:
+			moves += 1<<48
 
+	# Add this piece's moves to the move list
+	while moves >= 0:
+		move = moves & -moves
+		move_list.append((eightx_y, bit_significance_mapping[move]))
+		moves -= move
 
+def calculate_black_pawn_move(eightx_y):
+	global all_black_moves
+	global move_list
 
+	moves = black_pawn_moves[eightx_y] & ~all_piece_positions
+
+	# The precalculated "sixth_rank_shifted_to_fifth" is used to prevent a pawn from hopping over a piece on its first move.
+	if eightx_y % 8 == 6:
+		moves &= ~sixth_rank_shifted_to_fifth
+
+	# Deal with pawn attacks
+	moves += (black_pawn_attacks[eightx_y] & all_white_positions)
+
+	# Because "all_black_moves"  is really just a list of squares the white king can't move onto, add all potential pawn attacks to it, but not the regular pawn moves.
+	all_black_moves |= black_pawn_attacks[eightx_y]
+
+	# Add this piece's moves to the move list
+	while moves >= 0:
+		move = moves & -moves
+		move_list.append((eightx_y, bit_significance_mapping[move]))
+		moves -= move
+
+def calculate_black_knight_move(eightx_y):
+	global all_black_moves
+	global move_list
+
+	moves = knight_move_bitboards[eightx_y] & ~all_black_positions
+	all_black_moves |= knight_move_bitboards[eightx_y]
+
+	# Add this piece's moves to the move list
+	while moves >= 0:
+		move = moves & -moves
+		move_list.append((eightx_y, bit_significance_mapping[move]))
+		moves -= move
+
+def calculate_black_bishop_move(eightx_y):
+	# This is based on the same bitboard methodology as the rank and file stuff. But the diagonals are all different lengths, whereas the ranks and files are all of equal length.
+	global all_black_moves
+	global move_list
+
+	# Calculate the a1_h8 diagonal moves
+	bitshift_amount = a1_h8_bitshift_amounts[eightx_y]
+	occupancy = (all_piece_positions >> bitshift_amount) & 0b1000000001000000001000000001000000001000000001000000001000000001
+	potential_moves = (a1_h8_diagonal_bitboards[occupancy][a1_h8_positions[eightx_y]] & a1_h8_lengths[eightx_y]) << bitshift_amount
+
+	# Calculate the a8_h1 diagonal moves
+	bitshift_amount = a8_h1_bitshift_amounts[eightx_y]
+	if bitshift_amount < 0:
+		occupancy = ((all_piece_positions << abs(bitshift_amount)) & 0b100000010000001000000100000010000001000000100000010000000)
+		potential_moves |= (a8_h1_diagonal_bitboards[occupancy][a8_h1_positions[eightx_y]] & a8_h1_lengths[eightx_y]) >> abs(bitshift_amount)
+	else:
+		occupancy = (all_piece_positions >> bitshift_amount) & 0b100000010000001000000100000010000001000000100000010000000
+		potential_moves |= (a8_h1_diagonal_bitboards[occupancy][a8_h1_positions[eightx_y]] & a8_h1_lengths[eightx_y]) << bitshift_amount
+
+	moves = potential_moves & ~all_black_positions
+	all_black_moves |= potential_moves
+
+	# Add this piece's moves to the move list
+	while moves >= 0:
+		move = moves & -moves
+		move_list.append((eightx_y, bit_significance_mapping[move]))
+		moves -= move
+
+def calculate_black_rook_move(eightx_y):
+	global all_black_moves
+	global move_list
+
+	# File moves
+	occupancy = (all_piece_positions >> (eightx_y - (eightx_y % 8))) & 0b11111111
+	potential_moves = file_bitboards[eightx_y % 8][occupancy] << (eightx_y - (eightx_y % 8))
+
+	# Rank moves
+	occupancy = (all_piece_positions >> (eightx_y % 8)) & 0b100000001000000010000000100000001000000010000000100000001
+	potential_moves |= (rank_bitboards[occupancy][eightx_y // 8] << (eightx_y % 8))
+
+	moves = potential_moves & ~all_black_positions
+	all_black_moves |= potential_moves
+
+	# Add this piece's moves to the move list
+	while moves >= 0:
+		move = moves & -moves
+		move_list.append((eightx_y, bit_significance_mapping[move]))
+		moves -= move
+
+def calculate_black_queen_move(eightx_y):
+	global all_black_moves
+	global move_list
+
+	# a1_h8 diagonal moves
+	bitshift_amount = a1_h8_bitshift_amounts[eightx_y]
+	occupancy = (all_piece_positions >> bitshift_amount) & 0b1000000001000000001000000001000000001000000001000000001000000001
+	potential_moves = (a1_h8_diagonal_bitboards[occupancy][a1_h8_positions[eightx_y]] & a1_h8_lengths[eightx_y]) << bitshift_amount
+
+	# a8_h1 diagonal moves
+	bitshift_amount = a8_h1_bitshift_amounts[eightx_y]
+	if bitshift_amount < 0:
+		occupancy = ((all_piece_positions << abs(bitshift_amount)) & 0b100000010000001000000100000010000001000000100000010000000)
+		potential_moves |= (a8_h1_diagonal_bitboards[occupancy][a8_h1_positions[eightx_y]] & a8_h1_lengths[eightx_y]) >> abs(bitshift_amount)
+	else:
+		occupancy = (all_piece_positions >> bitshift_amount) & 0b100000010000001000000100000010000001000000100000010000000
+		potential_moves |= (a8_h1_diagonal_bitboards[occupancy][a8_h1_positions[eightx_y]] & a8_h1_lengths[eightx_y]) << bitshift_amount
+
+	# File moves
+	occupancy = (all_piece_positions >> (eightx_y - (eightx_y % 8))) & 0b11111111
+	potential_moves |= file_bitboards[eightx_y % 8][occupancy] << (eightx_y - (eightx_y % 8))
+
+	# Rank moves
+	occupancy = (all_piece_positions >> (eightx_y % 8)) & 0b100000001000000010000000100000001000000010000000100000001
+	potential_moves |= (rank_bitboards[occupancy][eightx_y // 8] << (eightx_y % 8))
+
+	moves = potential_moves & ~all_black_positions
+	all_black_moves |= potential_moves
+
+	# Add this piece's moves to the move list
+	while moves >= 0:
+		move = moves & -moves
+		move_list.append((eightx_y, bit_significance_mapping[move]))
+		moves -= move
+
+def calculate_black_king_move(eightx_y):
+	# Don't move onto a square the opposing king can move onto
+	# Don't move onto a square that an enemy piece may move onto
+	# Don't move onto a square that an enemy piece is defending
+	# Remove friendly pieces from potential moves
+	moves = king_move_bitboards[eightx_y] & ~(king_move_bitboards[white_king_location] | all_white_moves | all_black_positions)
+
+	# Column A castle
+	# If neither the king nor the rook has moved and relevant squares are empty
+	if castles & 0b0001 > 0 and all_piece_positions & 0b10000000100000001000000000000000 == 0:
+		# If the king is not in check and would not have to move through check
+		if all_white_moves & 0b1000000010000000100000000000000000000000 == 0:
+			moves += 1<<23
+
+	# Column H castle
+	# If neither the king nor the rook has moved and relevant squares are empty
+	if castles & 0b0010 > 0 and all_piece_positions & 0b10000000100000000000000000000000000000000000000000000000 == 0:
+		# If the king is not in check and would not have to move through check
+		if all_white_moves & 0b10000000100000000000000000000000000000000000000000000000 == 0:
+			moves += 1<<55
 
 def generate_moves():
 	global checker_types
@@ -941,8 +1065,6 @@ def generate_moves():
 	global all_piece_positions
 	global third_rank_shifted_to_fourth
 	global sixth_rank_shifted_to_fifth
-	global en_passant_pieces
-	global en_passant_victim
 	global white_king_location
 	global black_king_location
 	global move_list
@@ -953,8 +1075,6 @@ def generate_moves():
 	checker_positions = []
 	pinned_white_pieces = []
 	pinned_black_pieces = []
-	en_passant_pieces = []
-	en_passant_victim = 0
 	move_list = []
 
 	# Erase the bitboards that are maintained by the *.calculate_moves functions
@@ -963,8 +1083,8 @@ def generate_moves():
 
 	# Populate the piece position bitboards
 	all_piece_positions = all_white_positions | all_black_positions
-	third_rank_shifted_to_fourth = (all_piece_positions & 0x404040404040404) << 1
-	sixth_rank_shifted_to_fifth = (all_piece_positions & 0x2020202020202020) >> 1 
+	third_rank_shifted_to_fourth = (all_piece_positions & 0b10000000100000001000000010000000100000001000000010000000100) << 1
+	sixth_rank_shifted_to_fifth = (all_piece_positions & 0b10000000100000001000000010000000100000001000000010000000100000) >> 1 
 
 	# Recalculate all necessary information
 	i = 0
@@ -998,47 +1118,22 @@ def generate_moves():
 					black_king_location = i
 		i += 1
 
-	"""
-	for piece in active_white_pieces:
-		pieces[piece].calculate_moves()
-
-	for piece in active_black_pieces:
-		pieces[piece].calculate_moves()
-	"""
-
-
-
 	# Check for en passant
-	if last_move_piece_type == 5:
-		if last_move_origin_eightx_y - last_move_destination_eightx_y == 2: # Black moved
-			if last_move_origin_eightx_y > 7 and squares[last_move_destination_eightx_y - 8] & 0b11111111 > 0:
-				en_passant_attacker = squares[last_move_destination_eightx_y - 8]
-				pieces[en_passant_attacker].moves += 1 << (last_move_destination_eightx_y + 1)
-				all_white_moves = all_white_moves | (1 << (last_move_destination_eightx_y + 1))
-				en_passant_pieces.append(en_passant_attacker)
-				en_passant_victim = squares[last_move_destination_eightx_y]
-
-			if last_move_origin_eightx_y < 56 and squares[last_move_destination_eightx_y + 8] & 0b11111111 > 0:
-				en_passant_attacker = squares[last_move_destination_eightx_y + 8]
-				pieces[en_passant_attacker].moves += 1 << (last_move_destination_eightx_y + 1)
-				all_white_moves = all_white_moves | (1 << (last_move_destination_eightx_y + 1))
-				en_passant_pieces.append(en_passant_attacker)
-				en_passant_victim = squares[last_move_destination_eightx_y]
-
-		elif last_move_origin_eightx_y - last_move_destination_eightx_y == -2: # White moved
-			if last_move_origin_eightx_y > 7 and squares[last_move_destination_eightx_y - 8] & 0b1111111100000000 > 0:
-				en_passant_attacker = squares[last_move_destination_eightx_y - 8]
-				pieces[en_passant_attacker].moves += 1 << (last_move_destination_eightx_y - 1)
-				all_black_moves = all_black_moves | (1 << (last_move_destination_eightx_y - 1))
-				en_passant_pieces.append(en_passant_attacker)
-				en_passant_victim = squares[last_move_destination_eightx_y]
-
-			if last_move_origin_eightx_y < 56 and squares[last_move_destination_eightx_y + 8] & 0b1111111100000000 > 0:
-				en_passant_attacker = squares[last_move_destination_eightx_y + 8]
-				pieces[en_passant_attacker].moves += 1 << (last_move_destination_eightx_y - 1)
-				all_black_moves = all_black_moves | (1 << (last_move_destination_eightx_y - 1))
-				en_passant_pieces.append(en_passant_attacker)
-				en_passant_victim = squares[last_move_destination_eightx_y]
+	if en_passant_square != -1:
+		if en_passant_square % 8 == 2: # Black's attack.
+			if en_passant_square > 2:
+				if squares[en_passant_square - 7] == 'p':
+					move_list.append((en_passant_square - 7, en_passant_square))
+			if en_passant_square < 58:
+				if squares[en_passant_square + 9] == 'p':
+					move_list.append((en_passant_square + 9, en_passant_square))
+		else: # White's attack 
+			if en_passant_square > 5:
+				if squares[en_passant_square + 7] == 'p':
+					move_list.append((en_passant_square + 7, en_passant_square))
+			if en_passant_square < 61:
+				if squares[en_passant_square - 9] == 'p':
+					move_list.append((en_passant_square - 9, en_passant_square))
 
 	# DETECT WHITE PINS ON WHITE PIECES
 	pieces[1<<30].find_pins()
@@ -1547,10 +1642,8 @@ def initialize_with_start_position():
 
 def initialize_with_fen_position(fen_string):
 	global white_to_move
-	global last_move_piece_type
-	global last_move_origin_eightx_y
-	global last_move_destination_eightx_y
 	global castles
+	global en_passant_square
 	global halfmove_clock
 	global fullmove_number
 	global all_white_positions
@@ -1683,10 +1776,6 @@ def initialize_with_fen_position(fen_string):
 		castles = castles & 0b1110
 
 	# 4) EN PASSANT TARGET SQUARE
-	# Ludullus stores 5 last-move variables in the board class, and infers from those whether or not en passant is possible. 
-	# If it is possible, three en passant variables are stored in the board class, and the moves of the piece(s) that may perform the en passant are updated.
-	# So, this function will only populate the initial five last-move variables, and allow downstream logic to do the rest.
-
 	if fen_array[3] not in ['a3', 'b3', 'c3', 'd3', 'e3', 'f3', 'g3', 'h3', 'a6', 'b6', 'c6', 'd6', 'e6', 'f6', 'g6', 'h6', '-']:
 		print('The en passant target square field is invalid. It must be either a square on the 3rd or the 6th rank, or a hyphen.')
 		exit()
@@ -1716,14 +1805,9 @@ def initialize_with_fen_position(fen_string):
 		elif 'h' in fen_array[3]:
 			target_square_file = 7
 
-		last_move_piece_type = 5
-
-		if target_square_rank == 2: # white
-			last_move_origin_eightx_y = 8*target_square_file+1
-			last_move_destination_eightx_y = 8*target_square_file+3
-		else: # black
-			last_move_origin_eightx_y = 8*target_square_file+6
-			last_move_destination_eightx_y = 8*target_square_file+4
+		en_passant_square = 8 * target_square_file + target_square_rank
+	else:
+		en_passant_square = -1
 
 	# 5) HALFMOVE CLOCK
 	if fen_array[4].isdigit():
@@ -1805,17 +1889,12 @@ active_white_pieces = [1, 1<<1, 1<<2, 1<<3, 1<<4, 1<<5, 1<<6, 1<<7, 1<<16, 1<<17
 active_black_pieces = [1<<8, 1<<9, 1<<10, 1<<11, 1<<12, 1<<13, 1<<14, 1<<15, 1<<18, 1<<19, 1<<22, 1<<23, 1<<26, 1<<27, 1<<29]
 
 # En passant variables
-en_passant_pieces = []
-en_passant_victim = 0
+en_passant_square = -1
 
 # Move variables
 white_to_move = True
 
-last_move_piece_type = -1
-last_move_origin_eightx_y = -1
-last_move_destination_eightx_y = -1
-
-#Castles
+# Castles
 # The bits here are as follow:
 # 1000 : White castle kingside
 # 0100 : White castle queenside
