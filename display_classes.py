@@ -10,7 +10,7 @@ class BoardDisplay(Canvas):
 		self.current_position = [0 for i in range(64)]
 
 		# Interaction variables
-		self.selected = 0
+		self.selected = -1
 		self.highlighted_square = []
 
 		# Move validation variables
