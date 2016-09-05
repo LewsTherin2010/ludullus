@@ -10,7 +10,7 @@ class BoardDisplay(Canvas):
 		self.current_position = [0 for i in range(64)]
 
 		# Interaction variables
-		self.selected = 0
+		self.selected = -1
 		self.highlighted_square = []
 
 		# Move validation variables
@@ -18,13 +18,12 @@ class BoardDisplay(Canvas):
 
 		Canvas.__init__(self, parent, height = 820, width = 820, bg = '#222')
 
-	def render_position(self, new_position, square_display, pieces):
-
+	def render_position(self, board, square_display):
 		# compare current position to new position and draw the appropriate pieces
 		for i in range(64):
 			x = i // 8
 			y = i % 8
-			if self.current_position[i] != new_position[i]:
+			if self.current_position[i] != board[i]:
 
 				# If the square has been highlighted, return it to its original color before recoloring it.
 				if square_display[x][y].color == "#987":
@@ -35,12 +34,11 @@ class BoardDisplay(Canvas):
 				# Display the piece move
 				square_display[x][y].color_square()
 
-				if new_position[i] != 0:
-					square_display[x][y].draw_piece(x, y, new_position[i], pieces)
-
+				if board[i] != 0:
+					square_display[x][y].draw_piece(x, y, board[i])
 
 		# Update the display's board position
-		self.current_position = new_position
+		self.current_position = board
 
 class SquareDisplay():
 	def __init__(self, x, y, board_display):
@@ -92,23 +90,31 @@ class SquareDisplay():
 
 		return coords
 
-	def draw_piece(self, x, y, index, pieces):
-
-		piece_type = pieces[index].type
-		white = pieces[index].white
-
-		if piece_type == 0:
-			self.draw_king(x, y, white)
-		elif piece_type == 1:
-			self.draw_queen(x, y, white)
-		elif piece_type == 2:
-			self.draw_rook(x, y, white)
-		elif piece_type == 3:
-			self.draw_bishop(x, y, white)
-		elif piece_type == 4:
-			self.draw_knight(x, y, white)
-		elif piece_type == 5:
-			self.draw_pawn(x, y, white)
+	def draw_piece(self, x, y, character):
+		if character == 'p':
+			self.draw_pawn(x, y, False)
+		elif character == 'P':
+			self.draw_pawn(x, y, True)
+		elif character == 'n':
+			self.draw_knight(x, y, False)
+		elif character == 'N':
+			self.draw_knight(x, y, True)
+		elif character == 'b':
+			self.draw_bishop(x, y, False)
+		elif character == 'B':
+			self.draw_bishop(x, y, True)
+		elif character == 'r':
+			self.draw_rook(x, y, False)
+		elif character == 'R':
+			self.draw_rook(x, y, True)
+		elif character == 'q':
+			self.draw_queen(x, y, False)
+		elif character == 'Q':
+			self.draw_queen(x, y, True)
+		elif character == 'k':
+			self.draw_king(x, y, False)
+		elif character == 'K':
+			self.draw_king(x, y, True)
 
 	def draw_pawn(self, x, y, white):
 		# Set the background color, and the piece color
