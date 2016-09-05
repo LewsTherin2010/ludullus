@@ -731,10 +731,10 @@ def generate_moves():
 					black_move_list.add((en_passant_square + 9, en_passant_square))
 		else: # White's attack 
 			if en_passant_square > 5:
-				if board[en_passant_square - 9] == 'p':
+				if board[en_passant_square - 9] == 'P':
 					white_move_list.add((en_passant_square - 9, en_passant_square))
 			if en_passant_square < 61:
-				if board[en_passant_square + 7] == 'p':
+				if board[en_passant_square + 7] == 'P':
 					white_move_list.add((en_passant_square + 7, en_passant_square))
 
 	# DETECT WHITE PINS ON WHITE PIECES
@@ -759,7 +759,7 @@ def generate_moves():
 
 		# Before removing moves, see if this piece is checking the opposing king, and if so, add it to the checkers array
 		if (pin[0], black_king_eightx_y) in white_move_list:
-			checkers.append[pin[0]]
+			checkers.append(pin[0])
 
 		# Remove moves
 		moves_to_remove = set([])
@@ -789,7 +789,7 @@ def generate_moves():
 
 		# Before removing moves, see if this piece is checking the opposing king, and if so, add it to the checkers array
 		if (pin[0], white_king_eightx_y) in black_move_list:
-			checkers.append[pin[0]]
+			checkers.append(pin[0])
 
 		# Remove moves
 		moves_to_remove = set([])
@@ -874,8 +874,8 @@ def calculate_black_check_moves():
 
 		# If the single checking piece is not a pawn or a knight, then the checked side can defend also defend by interposing a piece
 		if board[checkers[0]] in ['B', 'R', 'Q']:
-			if ((1 << white_king_eightx_y) + (1 << checkers[0])) in intervening_squares_bitboards:
-				defence_moves += intervening_squares_bitboards[(1 << white_king_eightx_y) + (1 << checkers[0])]
+			if ((1 << black_king_eightx_y) + (1 << checkers[0])) in intervening_squares_bitboards:
+				defence_moves += intervening_squares_bitboards[(1 << black_king_eightx_y) + (1 << checkers[0])]
 
 	# Unpack the defense moves bitboard.
 	defence_move_list = []
@@ -926,7 +926,7 @@ def evaluate_position():
 	position_value = 0
 
 	for i in range(64):
-		position_value += piece_values[squares[i]]
+		position_value += piece_values[board[i]]
 
 	nodes += 1
 	return position_value
@@ -936,11 +936,12 @@ def evaluate_position():
 # ****************************************************************************
 def computer_move(computer_plays):
 	if computer_plays == 'white':
-		calculation_result = calculate_white_move(1, 1, -20000, 20000)
+		calculation_result = calculate_white_move(4, 4, -20000, 20000)
 
 		# Calculate_white_move will return either -1 or a dictionary containing instructions for moving. =1 means checkmate.
 		if calculation_result == -1: # Checkmate
 			print("Checkmate has occurred. Black wins.")
+			return
 
 		# Unpack the return dictionary	
 		best_move_origin = calculation_result.get("best_move_origin")
@@ -948,15 +949,16 @@ def computer_move(computer_plays):
 
 		# Move the piece, with graphics.
 		board_display.selected = best_move_origin
-		make_white_move(best_move_origin, best_move_destination)
+		move_selected_piece(best_move_destination)
 
 
 	elif computer_plays == 'black':
-		calculation_result = calculate_black_move(1, 1, -20000, 20000)
+		calculation_result = calculate_black_move(4, 4, -20000, 20000)
 
 		# Calculate_black_move will return either -1 or a dictionary containing instructions for moving. -1 means checkmate.
 		if calculation_result == -1: # Checkmate
 			print("Checkmate has occurred. White wins.")
+			return
 
 		# Unpack the return dictionary	
 		best_move_origin = calculation_result.get("best_move_origin")
@@ -964,7 +966,7 @@ def computer_move(computer_plays):
 
 		# Move the piece, with graphics.
 		board_display.selected = best_move_origin
-		make_black_move(best_move_origin, best_move_destination)
+		move_selected_piece(best_move_destination)
 	
 def calculate_white_move(depth, current_depth, alpha, beta):
 	global white_to_move
@@ -973,12 +975,12 @@ def calculate_white_move(depth, current_depth, alpha, beta):
 	position_memento = PositionMemento()
 	generate_moves()
 
-	# Initialize the best_move_piece as an impossible value, to allow detection of checkmate
-	best_move_piece = -1
+	# Initialize the best_move_origin as an impossible value, to allow detection of checkmate
+	best_move_origin = -1
 	best_position_value = -20000
 
 	# Find all moves for this node.
-	move_list = white_move_list[:]
+	move_list = list(white_move_list)[:]
 
 	for move in move_list:
 		# Make move and return value of board (without graphics)
@@ -1006,12 +1008,12 @@ def calculate_white_move(depth, current_depth, alpha, beta):
 
 		if beta <= alpha:
 			if depth != current_depth: # Not root node
-				if best_move_piece == -1: # Checkmate has occurred.
+				if best_move_origin == -1: # Checkmate has occurred.
 					return -20000
 				else:
 					return best_position_value
 			else: # root node
-				if best_move_piece == -1: # Checkmate has occurred.
+				if best_move_origin == -1: # Checkmate has occurred.
 					return -1
 				else: 
 					return {"best_move_origin": best_move_origin, "best_move_destination": best_move_destination}
@@ -1021,12 +1023,12 @@ def calculate_white_move(depth, current_depth, alpha, beta):
 	# If checkmate has occurred in a branch, return an arbitrarily large number as the value of the position.
 	# If checkmate has occurred in the root node, return -1 as the piece index.
 	if depth != current_depth: # Not root node
-		if best_move_piece == -1: # Checkmate has occurred.
+		if best_move_origin == -1: # Checkmate has occurred.
 			return -20000
 		else:
 			return best_position_value
 	else: # root node
-		if best_move_piece == -1: # Checkmate has occurred.
+		if best_move_origin == -1: # Checkmate has occurred.
 			return -1
 		else: 
 			return {"best_move_origin": best_move_origin, "best_move_destination": best_move_destination}
@@ -1038,12 +1040,12 @@ def calculate_black_move(depth, current_depth, alpha, beta):
 	position_memento = PositionMemento()
 	generate_moves()
 	
-	# Initialize the best_move_piece as an impossible value, to allow detection of checkmate
-	best_move_piece = -1
+	# Initialize the best_move_origin as an impossible value, to allow detection of checkmate
+	best_move_origin = -1
 	best_position_value = 20000
 
 	# Find all moves for this node.
-	move_list = black_move_list[:]
+	move_list = list(black_move_list)[:]
 	for move in move_list:			
 		# Make move and return value of board (without graphics)
 		make_black_move(move[0], move[1])
@@ -1070,12 +1072,12 @@ def calculate_black_move(depth, current_depth, alpha, beta):
 
 		if beta <= alpha:
 			if depth != current_depth: # Not root node
-				if best_move_piece == -1: # Checkmate has occurred.
+				if best_move_origin == -1: # Checkmate has occurred.
 					return -20000
 				else:
 					return best_position_value
 			else: # root node
-				if best_move_piece == -1: # Checkmate has occurred.
+				if best_move_origin == -1: # Checkmate has occurred.
 					return -1
 				else: 
 					return {"best_move_origin": best_move_origin, "best_move_destination": best_move_destination}
@@ -1086,12 +1088,12 @@ def calculate_black_move(depth, current_depth, alpha, beta):
 	# If checkmate has occurred in the root node, return -1 as the piece index.
 
 	if depth != current_depth: # Not root node
-		if best_move_piece == -1: # Checkmate has occurred.
+		if best_move_origin == -1: # Checkmate has occurred.
 			return 20000
 		else:
 			return best_position_value
 	else: # root node
-		if best_move_piece == -1: # Checkmate has occurred.
+		if best_move_origin == -1: # Checkmate has occurred.
 			return -1
 		else: 
 			return {"best_move_origin": best_move_origin, "best_move_destination": best_move_destination}
@@ -1443,7 +1445,11 @@ elif len(sys.argv) > 1:
 					computer_end = logger.return_timestamp()
 
 					# Record statistics
-					nps = nodes / ((computer_end - computer_start)/1000.0)
+					if computer_end - computer_start > 0:
+						nps = nodes / ((computer_end - computer_start)/1000.0)
+					else:
+						nps = nodes
+
 					logger.log("nodes: " + str(nodes))
 					logger.log("nps: " + str(nps))
 					logger.log("seconds: " + str(((computer_end - computer_start)/1000.0)))
