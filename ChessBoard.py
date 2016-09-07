@@ -29,7 +29,7 @@ class PositionMemento():
 		self.former_black_pinners = black_pinners[:]
 
 		# Store position
-		self.board = board
+		self.board = board[:]
 
 	def restore_current_position(self):
 		global white_to_move
@@ -60,7 +60,7 @@ class PositionMemento():
 		white_pinners = self.former_white_pinners[:]
 		black_pinners = self.former_black_pinners[:]
 
-		board = self.board
+		board = self.board[:]
 
 # **************************************************************************
 # ************************** USER INTERFACE ********************************
@@ -161,6 +161,7 @@ def make_white_move(origin, destination):
 	global halfmove_clock
 	global all_white_positions
 	global white_pinners
+	global black_pinners
 	global board
 	global castles
 	global en_passant_square
@@ -173,18 +174,22 @@ def make_white_move(origin, destination):
 
 	# Kill the opposing piece, if any
 	if board[destination] != '-':
-		black_leave_square(destination, True)
+		black_leave_square(destination)
+		halfmove_clock = 0
+		if board[destination] in ['b', 'r', 'q']:
+			black_pinners.remove(destination)
 
-	board = board[:destination] + piece + board[destination + 1:]
+	# Move
+	board[destination] = piece
 
 	# Only pawns have to deal with en passant attacks, queen promotion, and setting the halfmove clock to 0
 	if piece == 'P':
 		# En passant
 		if destination == en_passant_square:
-			black_leave_square(en_passant_square - 1, True)
+			black_leave_square(en_passant_square - 1)
 		# Queen promotion
 		if destination % 8 == 7:
-			board = board[:destination] + 'Q' + board[destination + 1:]
+			board[destination] = 'Q'
 			white_pinners.append(destination)
 
 		# Reset the half-move clock
@@ -214,8 +219,7 @@ def make_white_move(origin, destination):
 		white_pinners.remove(origin)
 		white_pinners.append(destination)
 
-def white_leave_square(square_to_leave, captured = False):
-	global halfmove_clock
+def white_leave_square(square_to_leave):
 	global all_white_positions
 	global board
 	global castles
@@ -227,20 +231,15 @@ def white_leave_square(square_to_leave, captured = False):
 		elif square_to_leave == 0:
 			castles &= 0b1011
 
-	# Deal with captures
-	if captured:
-		halfmove_clock = 0
-		if board[square_to_leave] in ['B', 'R', 'Q']:
-			white_pinners.remove(square_to_leave)
-
 	# Remove from boards and bitboards.
 	all_white_positions -= 1 << square_to_leave
-	board = board[:square_to_leave] + '-' + board[square_to_leave + 1:]
+	board[square_to_leave] = '-'
 
 def make_black_move(origin, destination):
 	global halfmove_clock
 	global all_black_positions
 	global black_pinners
+	global white_pinners
 	global board
 	global castles
 	global en_passant_square
@@ -253,18 +252,22 @@ def make_black_move(origin, destination):
 
 	# Kill the opposing piece, if any
 	if board[destination] != '-':
-		white_leave_square(destination, True)
+		white_leave_square(destination)
+		halfmove_clock = 0
+		if board[destination] in ['B', 'R', 'Q']:
+			white_pinners.remove(destination)
 
-	board = board[:destination] + piece + board[destination + 1:]
+	# Move
+	board[destination] = piece
 
 	# Only pawns have to deal with en passant attacks, queen promotion, and setting the halfmove clock to 0
 	if piece == 'p':
 		# En passant
 		if destination == en_passant_square:
-			white_leave_square(en_passant_square + 1, True)
+			white_leave_square(en_passant_square + 1)
 		# Queen promotion
 		if destination % 8 == 0:
-			board = board[:destination] + 'q' + board[destination + 1:]
+			board[destination] = 'q'
 			black_pinners.append(destination)
 
 		# Reset the half-move clock
@@ -281,7 +284,7 @@ def make_black_move(origin, destination):
 		if origin - destination == 16:
 			make_black_move(7, 31) # Queen's side
 		elif origin - destination == -16:
-			make_white_move(63, 47)
+			make_black_move(63, 47)
 
 	# En passant detection
 	if piece == 'p' and destination - origin == -2:
@@ -294,8 +297,8 @@ def make_black_move(origin, destination):
 		black_pinners.remove(origin)
 		black_pinners.append(destination)
 
-def black_leave_square(square_to_leave, captured = False):
-	global halfmove_clock
+
+def black_leave_square(square_to_leave):
 	global all_black_positions
 	global board
 	global castles
@@ -307,15 +310,9 @@ def black_leave_square(square_to_leave, captured = False):
 		elif square_to_leave == 7:
 			castles &= 0b1110
 
-	# Deal with captures
-	if captured:
-		halfmove_clock = 0
-		if board[square_to_leave] in ['b', 'r', 'q']:
-			black_pinners.remove(square_to_leave)
-
 	# Remove from boards and bitboards.
 	all_black_positions -= 1 << square_to_leave
-	board = board[:square_to_leave] + '-' + board[square_to_leave + 1:]
+	board[square_to_leave] = '-'
 
 # ****************************************************************************
 # ************************** MOVE GENERATION *********************************
@@ -847,8 +844,8 @@ def calculate_white_check_moves():
 		defence_move_list.append(bit_significance_mapping[defence_moves & -defence_moves])
 		defence_moves -= (defence_moves & -defence_moves)
 
-	# Get a list of moves to remove
-	moves_to_remove = set([])
+	# Get a list of moves to remove, and populate it with castles
+	moves_to_remove = set([(32, 16), (32, 48)])
 	for move in white_move_list:
 		if move[0] != white_king_eightx_y and move[1] not in defence_move_list:
 			moves_to_remove.add(move)
@@ -856,7 +853,8 @@ def calculate_white_check_moves():
 	# If the king is being checked by a ray piece, He may not move away from a checking ray piece on the ray that he is being checked with.
 	for checker in checkers:
 		if board[checker] in ['b', 'r', 'q']:
-			moves_to_remove.add((white_king_eightx_y, white_king_eightx_y + get_vector(checker, white_king_eightx_y)))
+			if (checker, white_king_eightx_y) in ray_check_forbidden_move_dict:
+				moves_to_remove.add((white_king_eightx_y, ray_check_forbidden_move_dict[(checker, white_king_eightx_y)]))
 
 	white_move_list = white_move_list - moves_to_remove
 
@@ -884,7 +882,7 @@ def calculate_black_check_moves():
 		defence_moves -= (defence_moves & -defence_moves)
 
 	# Get a list of moves to remove
-	moves_to_remove = set([])
+	moves_to_remove = set([(39, 23), (39, 55)])
 	for move in black_move_list:
 		if move[0] != black_king_eightx_y and move[1] not in defence_move_list:
 			moves_to_remove.add(move)
@@ -892,36 +890,21 @@ def calculate_black_check_moves():
 	# If the king is being checked by a ray piece, He may not move away from a checking ray piece on the ray that he is being checked with.
 	for checker in checkers:
 		if board[checker] in ['B', 'R', 'Q']:
-			moves_to_remove.add((black_king_eightx_y, black_king_eightx_y + get_vector(checker, black_king_eightx_y)))
+			if (checker, black_king_eightx_y) in ray_check_forbidden_move_dict:
+				moves_to_remove.add((black_king_eightx_y, ray_check_forbidden_move_dict[(checker, black_king_eightx_y)]))
 
 	black_move_list = black_move_list - moves_to_remove
-
-def get_vector(origin, destination):
-	if origin // 8 == destination // 8:	# Same file
-		if origin > destination:
-			return -1
-		else: 
-			return 1
-	elif origin % 8 == destination % 8: # Same rank
-		if origin > destination:
-			return -8
-		else:
-			return 8
-	elif (origin - destination) % 9 == 0: # A1H8 diagonals
-		if origin > destination:
-			return -9
-		else:
-			return 9
-	elif (origin - destination) % 7 == 0: #A8H1 diagonals
-		if origin > destination:
-			return -7
-		else:
-			return 7
 
 # ****************************************************************************
 # ***************************** EVALUATION ***********************************
 # ****************************************************************************
 def evaluate_position():
+	position_value = 0
+	for i in range(64):
+		position_value += piece_values[board[i]]
+	return position_value
+
+def evaluate_position_and_count():
 	global nodes
 	position_value = 0
 
@@ -935,8 +918,27 @@ def evaluate_position():
 # ******************************* SEARCH *************************************
 # ****************************************************************************
 def computer_move(computer_plays):
+	number_of_pieces = 0
+	for element in board:
+		if element != '-':
+			number_of_pieces += 1
+
+	if number_of_pieces <= 8:
+		end_game_bump = 3
+	if number_of_pieces <= 12:
+		end_game_bump = 2
+	elif number_of_pieces <= 17:
+		end_game_bump = 1
+	else:
+		end_game_bump = 0
+
+	depth = 4 + end_game_bump
+
 	if computer_plays == 'white':
-		calculation_result = calculate_white_move(4, 4, -20000, 20000)
+		#Initialize transposition table
+
+		initialize_transposition_table(depth)
+		calculation_result = calculate_white_move(depth, depth, -20000, 20000)
 
 		# Calculate_white_move will return either -1 or a dictionary containing instructions for moving. =1 means checkmate.
 		if calculation_result == -1: # Checkmate
@@ -953,7 +955,8 @@ def computer_move(computer_plays):
 
 
 	elif computer_plays == 'black':
-		calculation_result = calculate_black_move(4, 4, -20000, 20000)
+		initialize_transposition_table(depth)
+		calculation_result = calculate_black_move(depth, depth, -20000, 20000)
 
 		# Calculate_black_move will return either -1 or a dictionary containing instructions for moving. -1 means checkmate.
 		if calculation_result == -1: # Checkmate
@@ -967,9 +970,10 @@ def computer_move(computer_plays):
 		# Move the piece, with graphics.
 		board_display.selected = best_move_origin
 		move_selected_piece(best_move_destination)
-	
+
 def calculate_white_move(depth, current_depth, alpha, beta):
 	global white_to_move
+	global transposition_table
 
 	# store the current position, as well as the last move variables (for en passant detection)
 	position_memento = PositionMemento()
@@ -977,41 +981,46 @@ def calculate_white_move(depth, current_depth, alpha, beta):
 
 	# Initialize the best_move_origin as an impossible value, to allow detection of checkmate
 	best_move_origin = -1
-	best_position_value = -20000
 
 	# Find all moves for this node.
 	move_list = list(white_move_list)[:]
 
+	# Rank the moves by their position values
+	ranked_move_list = []
 	for move in move_list:
-		# Make move and return value of board (without graphics)
 		make_white_move(move[0], move[1])
+		position_value = evaluate_position()
+		position_memento.restore_current_position()
+		ranked_move_list.append((move, position_value))
+
+	for move in sorted(ranked_move_list, key = lambda move_and_value: move_and_value[1], reverse = True):
+		# Make move and return value of board (without graphics)
+		make_white_move(move[0][0], move[0][1])
 
 		# Recurse. If this calculation is the leaf of the search tree, find the position of the board.
 		# Otherwise, call the move function of the opposing side. 
-		if current_depth == 0:
-			position_value = evaluate_position()
+		position_string = ''.join(board)
+		if position_string in transposition_table[castles][en_passant_square][current_depth]:
+			position_value = transposition_table[castles][en_passant_square][current_depth][position_string]
+		elif current_depth == 0:
+			position_value = evaluate_position_and_count()
+			transposition_table[castles][en_passant_square][current_depth][position_string] = position_value
 		else:
 			white_to_move = not white_to_move
 			position_value = calculate_black_move(depth, current_depth - 1, alpha, beta)
+			transposition_table[castles][en_passant_square][current_depth][position_string] = position_value
 
 		position_memento.restore_current_position()
-
-		# compare value of move with previous high move value
-		if position_value > best_position_value:
-			best_position_value = position_value
-			best_move_origin = move[0]
-			best_move_destination = move[1]
 
 		# Alpha beta logic
 		if position_value > alpha:
 			alpha = position_value
+			best_move_origin = move[0][0]
+			best_move_destination = move[0][1]
 
 		if beta <= alpha:
 			if depth != current_depth: # Not root node
-				if best_move_origin == -1: # Checkmate has occurred.
-					return -20000
-				else:
-					return best_position_value
+				return alpha
 			else: # root node
 				if best_move_origin == -1: # Checkmate has occurred.
 					return -1
@@ -1023,10 +1032,7 @@ def calculate_white_move(depth, current_depth, alpha, beta):
 	# If checkmate has occurred in a branch, return an arbitrarily large number as the value of the position.
 	# If checkmate has occurred in the root node, return -1 as the piece index.
 	if depth != current_depth: # Not root node
-		if best_move_origin == -1: # Checkmate has occurred.
-			return -20000
-		else:
-			return best_position_value
+		return alpha
 	else: # root node
 		if best_move_origin == -1: # Checkmate has occurred.
 			return -1
@@ -1035,6 +1041,7 @@ def calculate_white_move(depth, current_depth, alpha, beta):
 
 def calculate_black_move(depth, current_depth, alpha, beta):
 	global white_to_move
+	global transposition_table
 
 	# store the current position, as well as the last move variables (for en passant detection)
 	position_memento = PositionMemento()
@@ -1042,40 +1049,47 @@ def calculate_black_move(depth, current_depth, alpha, beta):
 	
 	# Initialize the best_move_origin as an impossible value, to allow detection of checkmate
 	best_move_origin = -1
-	best_position_value = 20000
 
 	# Find all moves for this node.
 	move_list = list(black_move_list)[:]
-	for move in move_list:			
-		# Make move and return value of board (without graphics)
+
+	# Rank the moves by their position values
+	ranked_move_list = []
+	for move in move_list:
 		make_black_move(move[0], move[1])
+		position_value = evaluate_position()
+		position_memento.restore_current_position()
+		ranked_move_list.append((move, position_value))
+
+	for move in sorted(ranked_move_list, key = lambda move_and_value: move_and_value[1]):
+		# Make move and return value of board (without graphics)
+		make_black_move(move[0][0], move[0][1])
 
 		# Recurse. If this calculation is the leaf of the search tree, find the position of the board.
 		# Otherwise, call the move function of the opposing side. 
-		if current_depth == 0:
-			position_value = evaluate_position()
+		position_string = ''.join(board)
+
+		if position_string in transposition_table[castles][en_passant_square][current_depth]:
+			position_value = transposition_table[castles][en_passant_square][current_depth][position_string]
+		elif current_depth == 0:
+			position_value = evaluate_position_and_count()
+			transposition_table[castles][en_passant_square][current_depth][position_string] = position_value
 		else:
 			white_to_move = not white_to_move
 			position_value = calculate_white_move(depth, current_depth - 1, alpha, beta)
+			transposition_table[castles][en_passant_square][current_depth][position_string] = position_value
 
 		position_memento.restore_current_position()
-
-		# compare value of move with previous high move value
-		if position_value < best_position_value:
-			best_position_value = position_value
-			best_move_origin = move[0]
-			best_move_destination = move[1]
 
 		# Alpha beta logic
 		if position_value < beta:
 			beta = position_value
+			best_move_origin = move[0][0]
+			best_move_destination = move[0][1]
 
 		if beta <= alpha:
 			if depth != current_depth: # Not root node
-				if best_move_origin == -1: # Checkmate has occurred.
-					return -20000
-				else:
-					return best_position_value
+				return beta
 			else: # root node
 				if best_move_origin == -1: # Checkmate has occurred.
 					return -1
@@ -1088,10 +1102,7 @@ def calculate_black_move(depth, current_depth, alpha, beta):
 	# If checkmate has occurred in the root node, return -1 as the piece index.
 
 	if depth != current_depth: # Not root node
-		if best_move_origin == -1: # Checkmate has occurred.
-			return 20000
-		else:
-			return best_position_value
+		return beta
 	else: # root node
 		if best_move_origin == -1: # Checkmate has occurred.
 			return -1
@@ -1172,7 +1183,7 @@ def initialize_with_fen_position(fen_string):
 	fen_array = fen_string.split(' ')
 
 	# Set up a blank board.
-	board = '----------------------------------------------------------------'
+	board = ['-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-','-']
 
 	# 1) PIECE PLACEMENT DATA
 	# Split the position string into an array, and reverse it so that we deal with rank 1 first
@@ -1187,7 +1198,7 @@ def initialize_with_fen_position(fen_string):
 				file_counter += int(character)
 			else: 
 				eightx_y = file_counter * 8 + rank_counter
-				board = board[:eightx_y] + character + board[eightx_y + 1:]
+				board[eightx_y] = character
 				file_counter += 1
 
 		if file_counter != 8:
@@ -1292,6 +1303,18 @@ def initialize_with_fen_position(fen_string):
 	# Display the board
 	board_display.render_position(board, square_display)
 
+def initialize_transposition_table(depth):
+	global transposition_table
+	# Transposition table
+	transposition_table = {}
+
+	for castle_key in range(16):
+		transposition_table[castle_key] = {}
+		for en_passant_key in [-1, 2, 10, 18, 26, 34, 42, 50, 58, 5, 13, 21, 29, 37, 45, 53, 61]:
+			transposition_table[castle_key][en_passant_key] = {}
+			for depth_key in range(depth + 1):
+				transposition_table[castle_key][en_passant_key][depth_key] = {}
+
 # **************************************************************************
 # ********** GLOBAL VARIABLES (FORMER GLOBALS FILE.PY) *********************
 # **************************************************************************
@@ -1310,7 +1333,7 @@ board_display = BoardDisplay(app)
 square_display = [[SquareDisplay(x, y, board_display) for y in range(8)] for x in range(8)]
 
 # Create the main data structures for the engine
-board = 'RP----prNP----pnBP----pbQP----pqKP----pkBP----pbNP----pnRP----pr'
+board = ['R','P','-','-','-','-','p','r','N','P','-','-','-','-','p','n','B','P','-','-','-','-','p','b','Q','P','-','-','-','-','p','q','K','P','-','-','-','-','p','k','B','P','-','-','-','-','p','b','N','P','-','-','-','-','p','n','R','P','-','-','-','-','p','r']
 
 # Default is that the computer is not playing.
 computer_plays = ''
@@ -1326,11 +1349,6 @@ black_move_list = set([])
 # Pin variables
 white_pinners = [0, 16, 24, 40, 56] # Queen, rooks, and bishops
 black_pinners = [7, 23, 31, 47, 63] # Queen, rooks, and bishops
-
-# Active pieces
-# These lists do not include the king's index. The kings will be active for the entire game.
-active_white_pieces = [1, 1<<1, 1<<2, 1<<3, 1<<4, 1<<5, 1<<6, 1<<7, 1<<16, 1<<17, 1<<20, 1<<21, 1<<24, 1<<25, 1<<28]
-active_black_pieces = [1<<8, 1<<9, 1<<10, 1<<11, 1<<12, 1<<13, 1<<14, 1<<15, 1<<18, 1<<19, 1<<22, 1<<23, 1<<26, 1<<27, 1<<29]
 
 # En passant variables
 en_passant_square = -1
@@ -1384,6 +1402,8 @@ sixth_rank_shifted_to_fifth = 0 # For use in calculating black pawns' first move
 piece_values = {'-':0, 'P':1, 'p':-1, 'N':3, 'n':-3, 'B':3, 'b':-3, 'R':5, 'r':-5, 'Q':9, 'q':-9, 'K':10000, 'k':-10000}
 
 nodes = 0
+
+transposition_table = {}
 
 # ****************************************************************************
 # ************************ COMMAND LINE OPTIONS *****************************

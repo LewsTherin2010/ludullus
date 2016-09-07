@@ -34,11 +34,11 @@ class BoardDisplay(Canvas):
 				# Display the piece move
 				square_display[x][y].color_square()
 
-				if board[i] != 0:
+				if board[i] != '-':
 					square_display[x][y].draw_piece(x, y, board[i])
 
 		# Update the display's board position
-		self.current_position = board
+		self.current_position = board[:]
 
 class SquareDisplay():
 	def __init__(self, x, y, board_display):

@@ -2,6 +2,37 @@
 # ************** FUNCTIONS ***************
 # ****************************************
 
+def initialize_ray_check_forbidden_move_dict():
+	global ray_check_forbidden_move_dict
+
+	for checker in range(64):
+		for king in range(64):
+			if checker // 8 == king // 8:	# Same file
+				if checker > king and (king - 1) // 8 == king // 8:
+					ray_check_forbidden_move_dict[(checker, king)] = king - 1
+				
+				if king > checker and (king + 1) // 8 == king // 8:
+					ray_check_forbidden_move_dict[(checker, king)] = king + 1
+			
+			if checker % 8 == king % 8: # Same rank
+				if checker > king and king - 8 >= 0:
+					ray_check_forbidden_move_dict[(checker, king)] = king - 8
+				
+				if checker < king and king + 8 <= 63:
+					ray_check_forbidden_move_dict[(checker, king)] = king + 8
+			
+			if (checker - king) % 9 == 0: #A1H8 diagonals
+				if checker > king and checker % 8 > king % 8 and king % 8 > (king - 9) % 8 and king - 9 >= 0:
+					ray_check_forbidden_move_dict[(checker, king)] = king - 9
+				if king > checker and king % 8 > checker % 8 and king % 8 < (king + 9) % 8 and king + 9 <= 63:
+					ray_check_forbidden_move_dict[(checker, king)] = king + 9
+
+			if (checker - king) % 7 == 0: #A8H1 diagonals
+				if checker > king and checker % 8 < king % 8 and king % 8 < (king - 7) % 8 and king - 7 >= 0:
+					ray_check_forbidden_move_dict[(checker, king)] = king - 7
+				if king > checker and king % 8 < checker % 8 and king % 8 > (king + 7) % 8 and king + 7 <= 63:
+					ray_check_forbidden_move_dict[(checker, king)] = king + 7
+
 # This may be quite a large array. For every combination of two squares on a line, it will store 
 # all squares between those two. The keys of the array will be bitboard representations of the two
 # squares.
@@ -553,6 +584,10 @@ initialize_intervening_square_rank_and_file_bb()
 intervening_squares_diagonal_bb = {}
 initialize_intervening_square_diagonal_bb()
 
+# Ray-check dictionary: when a king is checked by a ray piece, he can't move away from it on the same ray. 
+ray_check_forbidden_move_dict = {}
+initialize_ray_check_forbidden_move_dict()
+
 # Knight move bitboards
 knight_move_bitboards = [0 for x in range(64)]
 initialize_knight_bitboards()
@@ -595,3 +630,4 @@ a8_h1_bitshift_amounts = []
 a8_h1_lengths = []
 a8_h1_positions = []
 calculate_a8_h1_diagonal_bitboard_variables()
+
