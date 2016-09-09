@@ -1,9 +1,13 @@
 # ************************* INCLUDES ***********************
-import sys
-from tkinter import *
-from logger_class import *
 from constant_bitboards import *
-from display_classes import *
+import time
+
+if __name__ == '__main__':
+	import sys
+	from tkinter import *
+	from logger_class import *
+	from display_classes import *
+	import multiprocessing
 
 # **********************************************************
 # ***************** MEMENTO (stores a board state) ************************
@@ -917,59 +921,109 @@ def evaluate_position_and_count():
 # ****************************************************************************
 # ******************************* SEARCH *************************************
 # ****************************************************************************
+
+def spawn_multiprocess_worker(board_state, thread_result):
+	import ChessBoard
+
+	initialize_board_for_spawn_process(board_state)
+
+	depth = board_state['depth']
+	initialize_transposition_table(depth)
+
+	if white_to_move:
+		result = calculate_white_move(depth, depth, -20000, 20000)
+	else:
+		result = calculate_black_move(depth, depth, -20000, 20000)
+
+	thread_result.put(result)
+
 def computer_move(computer_plays):
+	# This deepens the search in the endgame. Kind of ghetto.
 	number_of_pieces = 0
 	for element in board:
 		if element != '-':
 			number_of_pieces += 1
 
 	if number_of_pieces <= 8:
-		end_game_bump = 3
-	if number_of_pieces <= 12:
 		end_game_bump = 2
-	elif number_of_pieces <= 17:
+	elif number_of_pieces <= 16:
 		end_game_bump = 1
 	else:
 		end_game_bump = 0
 
-	depth = 4 + end_game_bump
+	depth = 5 + end_game_bump
+
+	# ***************
+	# MULTIPROCESSING
+	# ***************
+	# Get the number of processors
+	number_of_cpus = multiprocessing.cpu_count()
+
+	# Set the process method
+	thread_result = multiprocessing.Queue()
+
+	# Package the data to send to each spawn
+	core_parameters = [{} for i in range(number_of_cpus)]
+	for i in range(number_of_cpus):
+		core_parameters[i] = {'board' : board[:]
+			, 'white_king_eightx_y' : white_king_eightx_y
+			, 'black_king_eightx_y' : black_king_eightx_y
+			, 'white_pinners' : white_pinners[:]
+			, 'black_pinners' : black_pinners[:]
+			, 'en_passant_square' : en_passant_square
+			, 'white_to_move' : white_to_move
+			, 'castles' : castles
+			, 'checkers' : checkers[:]
+			, 'pinned_white_pieces' : pinned_white_pieces[:]
+			, 'pinned_black_pieces' : pinned_black_pieces[:]
+			, 'all_white_moves' : all_white_moves
+			, 'all_black_moves' : all_black_moves
+			, 'all_white_positions' : all_white_positions
+			, 'all_black_positions' : all_black_positions
+			, 'all_piece_positions' : all_piece_positions
+			, 'third_rank_shifted_to_fourth' : third_rank_shifted_to_fourth
+			, 'sixth_rank_shifted_to_fifth' : sixth_rank_shifted_to_fifth
+			, 'depth' : depth
+			, 'assigned_moves' : []
+			}
+
+	if white_to_move:
+		for i in range(len(white_move_list)):
+			core_parameters[i % number_of_cpus]['assigned_moves'].append(list(white_move_list)[i])
+	else:	
+		for i in range(len(black_move_list)):
+			core_parameters[i % number_of_cpus]['assigned_moves'].append(list(black_move_list)[i])
+
+
+	# Create the worker pool
+	processes = []
+	for i in range(number_of_cpus):
+		processes.append(multiprocessing.Process(target=spawn_multiprocess_worker, args=(core_parameters[i], thread_result,)))
+
+
+	for i in range(number_of_cpus):
+		processes[i].start()
+
+	for i in range(number_of_cpus):
+		processes[i].join()
+
+	result_list = []
+	while not thread_result.empty():
+		result_list.append(thread_result.get())
 
 	if computer_plays == 'white':
-		#Initialize transposition table
-
-		initialize_transposition_table(depth)
-		calculation_result = calculate_white_move(depth, depth, -20000, 20000)
-
-		# Calculate_white_move will return either -1 or a dictionary containing instructions for moving. =1 means checkmate.
-		if calculation_result == -1: # Checkmate
-			print("Checkmate has occurred. Black wins.")
-			return
-
-		# Unpack the return dictionary	
-		best_move_origin = calculation_result.get("best_move_origin")
-		best_move_destination = calculation_result.get("best_move_destination")
-
-		# Move the piece, with graphics.
-		board_display.selected = best_move_origin
-		move_selected_piece(best_move_destination)
-
-
+		result_list = sorted(result_list, key = lambda move_and_value: move_and_value[1], reverse = True)
 	elif computer_plays == 'black':
-		initialize_transposition_table(depth)
-		calculation_result = calculate_black_move(depth, depth, -20000, 20000)
+		result_list = sorted(result_list, key = lambda move_and_value: move_and_value[1], reverse = False)
 
-		# Calculate_black_move will return either -1 or a dictionary containing instructions for moving. -1 means checkmate.
-		if calculation_result == -1: # Checkmate
-			print("Checkmate has occurred. White wins.")
-			return
+	print(result_list)
 
-		# Unpack the return dictionary	
-		best_move_origin = calculation_result.get("best_move_origin")
-		best_move_destination = calculation_result.get("best_move_destination")
 
-		# Move the piece, with graphics.
-		board_display.selected = best_move_origin
-		move_selected_piece(best_move_destination)
+	best_move_origin = result_list[0][0][0]
+	best_move_destination = result_list[0][0][1]
+
+	board_display.selected = best_move_origin
+	move_selected_piece(best_move_destination)
 
 def calculate_white_move(depth, current_depth, alpha, beta):
 	global white_to_move
@@ -977,7 +1031,10 @@ def calculate_white_move(depth, current_depth, alpha, beta):
 
 	# store the current position, as well as the last move variables (for en passant detection)
 	position_memento = PositionMemento()
-	generate_moves()
+
+	# Spawned processes should will have a list of moves at the first ply assigned to them.
+	if __name__ == '__main__' or current_depth != depth:
+		generate_moves()
 
 	# Initialize the best_move_origin as an impossible value, to allow detection of checkmate
 	best_move_origin = -1
@@ -1025,7 +1082,7 @@ def calculate_white_move(depth, current_depth, alpha, beta):
 				if best_move_origin == -1: # Checkmate has occurred.
 					return -1
 				else: 
-					return {"best_move_origin": best_move_origin, "best_move_destination": best_move_destination}
+					return ((best_move_origin, best_move_destination), alpha)
 
 	# For any node but the root of the tree, the function should return the calculate value of the position.
 	# For the root node of the tree, the function should return a piece index, and the x, y values of the best move.
@@ -1037,7 +1094,7 @@ def calculate_white_move(depth, current_depth, alpha, beta):
 		if best_move_origin == -1: # Checkmate has occurred.
 			return -1
 		else: 
-			return {"best_move_origin": best_move_origin, "best_move_destination": best_move_destination}
+			return ((best_move_origin, best_move_destination), alpha)
 
 def calculate_black_move(depth, current_depth, alpha, beta):
 	global white_to_move
@@ -1045,7 +1102,10 @@ def calculate_black_move(depth, current_depth, alpha, beta):
 
 	# store the current position, as well as the last move variables (for en passant detection)
 	position_memento = PositionMemento()
-	generate_moves()
+
+	# Spawned processes should will have a list of moves at the first ply assigned to them.
+	if __name__ == '__main__' or current_depth != depth:
+		generate_moves()
 	
 	# Initialize the best_move_origin as an impossible value, to allow detection of checkmate
 	best_move_origin = -1
@@ -1094,7 +1154,7 @@ def calculate_black_move(depth, current_depth, alpha, beta):
 				if best_move_origin == -1: # Checkmate has occurred.
 					return -1
 				else: 
-					return {"best_move_origin": best_move_origin, "best_move_destination": best_move_destination}
+					return ((best_move_origin, best_move_destination), beta)
 
 	# For any node but the root of the tree, the function should return the calculate value of the position.
 	# For the root node of the tree, the function should return a piece index, and the x, y values of the best move.
@@ -1107,7 +1167,7 @@ def calculate_black_move(depth, current_depth, alpha, beta):
 		if best_move_origin == -1: # Checkmate has occurred.
 			return -1
 		else: 
-			return {"best_move_origin": best_move_origin, "best_move_destination": best_move_destination}
+			return ((best_move_origin, best_move_destination), beta)
 
 def calculate_white_perft(depth, current_depth):
 	global nodes
@@ -1153,6 +1213,53 @@ def calculate_black_perft(depth, current_depth):
 def initialize_board_display():
 	board_display.bind("<Button-1>", handle_click)
 	board_display.pack()
+
+def initialize_board_for_spawn_process(board_state):
+	global board
+	global white_king_eightx_y
+	global black_king_eightx_y
+	global white_pinners
+	global black_pinners
+	global en_passant_square
+	global white_to_move
+	global castles
+	global checkers
+	global pinned_white_pieces
+	global pinned_black_pieces
+	global all_white_moves
+	global all_black_moves
+	global all_white_positions
+	global all_black_positions
+	global all_piecs_positions
+	global third_rank_shifted_to_fourth
+	global sixth_rank_shifted_to_fifth
+	global white_move_list
+	global black_move_list
+
+	board = board_state['board'][:]
+	white_king_eightx_y = board_state['white_king_eightx_y']
+	black_king_eightx_y = board_state['black_king_eightx_y']
+	white_pinners = board_state['white_pinners'][:]
+	black_pinners = board_state['black_pinners'][:]
+	en_passant_square = board_state['en_passant_square']
+	white_to_move = board_state['white_to_move']
+	castles = board_state['castles']
+	checkers = board_state['checkers'][:]
+	pinned_white_pieces = board_state['pinned_white_pieces'][:]
+	pinned_black_pieces = board_state['pinned_black_pieces'][:]
+	all_white_moves = board_state['all_white_moves']
+	all_black_moves = board_state['all_black_moves']
+	all_white_positions = board_state['all_white_positions']
+	all_black_positions = board_state['all_black_positions']
+	all_piece_positions = board_state['all_piece_positions']
+	third_rank_shifted_to_fourth = board_state['third_rank_shifted_to_fourth']
+	sixth_rank_shifted_to_fifth = board_state['sixth_rank_shifted_to_fifth']
+
+
+	if white_to_move:
+		white_move_list = white_move_list | set(board_state['assigned_moves'])
+	else:
+		black_move_list = black_move_list | set(board_state['assigned_moves'])
 
 # Sets up the board in the initial position, and displays it.
 def initialize_with_start_position():
@@ -1319,18 +1426,23 @@ def initialize_transposition_table(depth):
 # ********** GLOBAL VARIABLES (FORMER GLOBALS FILE.PY) *********************
 # **************************************************************************
 
-# Create a root window
-root = Tk()
-root.title("Chess Board")
-root.geometry("820x820")
+if __name__ == '__main__':
+	# Create a root window
+	root = Tk()
+	root.title("Chess Board")
+	root.geometry("820x820")
 
-# Create a frame in the window to hold other widgets
-app = Frame(root, height = 1000, width = 1000, bg = "#333")
-app.grid()
+	# Create a frame in the window to hold other widgets
+	app = Frame(root, height = 1000, width = 1000, bg = "#333")
+	app.grid()
 
-# Create the board display and the square display
-board_display = BoardDisplay(app)
-square_display = [[SquareDisplay(x, y, board_display) for y in range(8)] for x in range(8)]
+	# Create the board display and the square display
+	board_display = BoardDisplay(app)
+	square_display = [[SquareDisplay(x, y, board_display) for y in range(8)] for x in range(8)]
+
+	# make sure that we multiprocess using spawn, not fork or forkserver
+	multiprocessing.set_start_method('spawn')
+
 
 # Create the main data structures for the engine
 board = ['R','P','-','-','-','-','p','r','N','P','-','-','-','-','p','n','B','P','-','-','-','-','p','b','Q','P','-','-','-','-','p','q','K','P','-','-','-','-','p','k','B','P','-','-','-','-','p','b','N','P','-','-','-','-','p','n','R','P','-','-','-','-','p','r']
@@ -1408,118 +1520,119 @@ transposition_table = {}
 # ****************************************************************************
 # ************************ COMMAND LINE OPTIONS *****************************
 # ****************************************************************************
+if __name__ == '__main__':
 
-# Just start the game, no special options
-if len(sys.argv) == 1:
-	computer_plays = ''
-	initialize_board_display()
-	initialize_with_start_position()
-	root.mainloop()
-
-# Other options
-elif len(sys.argv) > 1:
-	if sys.argv[1] == 'white': # Computer plays white
-		initialize_board_display()
-		initialize_with_start_position()
-
-		computer_plays = 'white'
-
-		# Play the move
-		computer_start = logger.return_timestamp()
-		computer_move(computer_plays)
-		computer_end = logger.return_timestamp()
-
-		# Record statistics
-		if computer_end - computer_start > 0:
-			nps = nodes / ((computer_end - computer_start)/1000.0)
-		else:
-			nps = nodes
-
-		logger.log("nodes: " + str(nodes))
-		logger.log("nps: " + str(nps))
-		logger.log("seconds: " + str(((computer_end - computer_start)/1000.0)))
-		logger.log("************************************")
-		nodes = 0
-
-		root.mainloop()
-
-	elif sys.argv[1] == 'black': # Computer plays black
-		initialize_board_display()
-		initialize_with_start_position()
-		computer_plays = 'black'
-		root.mainloop()
-
-	elif sys.argv[1] == 'fen': # Load the board with a FEN string
+	# Just start the game, no special options
+	if len(sys.argv) == 1:
 		computer_plays = ''
 		initialize_board_display()
-		initialize_with_fen_position(sys.argv[2])
-
-		if len(sys.argv) == 4: 
-			if sys.argv[3] == 'white': # Have the computer play white in the position specified by the FEN string
-				computer_plays = 'white'
-				if white_to_move:
-
-					# Play the move
-					computer_start = logger.return_timestamp()
-					computer_move(computer_plays)
-					computer_end = logger.return_timestamp()
-
-					# Record statistics
-					if computer_end - computer_start > 0:
-						nps = nodes / ((computer_end - computer_start)/1000.0)
-					else:
-						nps = nodes
-
-					logger.log("nodes: " + str(nodes))
-					logger.log("nps: " + str(nps))
-					logger.log("seconds: " + str(((computer_end - computer_start)/1000.0)))
-					logger.log("************************************")
-					nodes = 0
-
-			elif sys.argv[3] == 'black': # Have the computer play black in the position specified by the FEN string
-				computer_plays = 'black'
-				if not white_to_move:
-					# Play the move
-					computer_start = logger.return_timestamp()
-					computer_move(computer_plays)
-					computer_end = logger.return_timestamp()
-
-					# Record statistics
-					nps = nodes / ((computer_end - computer_start)/1000.0)
-					logger.log("nodes: " + str(nodes))
-					logger.log("nps: " + str(nps))
-					logger.log("seconds: " + str(((computer_end - computer_start)/1000.0)))
-					logger.log("************************************")
-					nodes = 0
-
+		initialize_with_start_position()
 		root.mainloop()
 
-	# Calculate perft to a specific depth from a position specified in FEN
-	elif sys.argv[1] == 'perft': # Count the number of leaf nodes at particular depths of minimax search
-		if not sys.argv[3].isdigit():
-			print ('The depth parameter must be a digit.')
-		else:
-			depth = int(sys.argv[3])
+	# Other options
+	elif len(sys.argv) > 1:
+		if sys.argv[1] == 'white': # Computer plays white
+			initialize_board_display()
+			initialize_with_start_position()
 
-		initialize_with_fen_position(sys.argv[2])
+			computer_plays = 'white'
 
-		if white_to_move:
-			start = logger.return_timestamp()
-			calculate_white_perft(depth, depth)
-			end = logger.return_timestamp()
-		else:
-			start = logger.return_timestamp()
-			calculate_black_perft(depth, depth)
-			end = logger.return_timestamp()
+			# Play the move
+			computer_start = logger.return_timestamp()
+			computer_move(computer_plays)
+			computer_end = logger.return_timestamp()
 
-		if end-start == 0:
-			print('Nodes:', nodes, ', NPS:', nodes, 'Seconds:', '0')
-		else:
-			nps = nodes / ((end - start)/1000.0)
-			print('Nodes:', nodes, ', NPS:', int(nps), 'Seconds:', round(((end - start)/1000),2))
+			# Record statistics
+			if computer_end - computer_start > 0:
+				nps = nodes / ((computer_end - computer_start)/1000.0)
+			else:
+				nps = nodes
 
-else: 
-	print('Please initialize the program with one of the following options:')
-	print('1: python chessboard.py {white/black}')
-	print('2: python chessboard.py fen [FEN] {white/black}')
-	print('3: python chessboard.py perft [FEN] [DEPTH]')
+			logger.log("nodes: " + str(nodes))
+			logger.log("nps: " + str(nps))
+			logger.log("seconds: " + str(((computer_end - computer_start)/1000.0)))
+			logger.log("************************************")
+			nodes = 0
+
+			root.mainloop()
+
+		elif sys.argv[1] == 'black': # Computer plays black
+			initialize_board_display()
+			initialize_with_start_position()
+			computer_plays = 'black'
+			root.mainloop()
+
+		elif sys.argv[1] == 'fen': # Load the board with a FEN string
+			computer_plays = ''
+			initialize_board_display()
+			initialize_with_fen_position(sys.argv[2])
+
+			if len(sys.argv) == 4: 
+				if sys.argv[3] == 'white': # Have the computer play white in the position specified by the FEN string
+					computer_plays = 'white'
+					if white_to_move:
+
+						# Play the move
+						computer_start = logger.return_timestamp()
+						computer_move(computer_plays)
+						computer_end = logger.return_timestamp()
+
+						# Record statistics
+						if computer_end - computer_start > 0:
+							nps = nodes / ((computer_end - computer_start)/1000.0)
+						else:
+							nps = nodes
+
+						logger.log("nodes: " + str(nodes))
+						logger.log("nps: " + str(nps))
+						logger.log("seconds: " + str(((computer_end - computer_start)/1000.0)))
+						logger.log("************************************")
+						nodes = 0
+
+				elif sys.argv[3] == 'black': # Have the computer play black in the position specified by the FEN string
+					computer_plays = 'black'
+					if not white_to_move:
+						# Play the move
+						computer_start = logger.return_timestamp()
+						computer_move(computer_plays)
+						computer_end = logger.return_timestamp()
+
+						# Record statistics
+						nps = nodes / ((computer_end - computer_start)/1000.0)
+						logger.log("nodes: " + str(nodes))
+						logger.log("nps: " + str(nps))
+						logger.log("seconds: " + str(((computer_end - computer_start)/1000.0)))
+						logger.log("************************************")
+						nodes = 0
+
+			root.mainloop()
+
+		# Calculate perft to a specific depth from a position specified in FEN
+		elif sys.argv[1] == 'perft': # Count the number of leaf nodes at particular depths of minimax search
+			if not sys.argv[3].isdigit():
+				print ('The depth parameter must be a digit.')
+			else:
+				depth = int(sys.argv[3])
+
+			initialize_with_fen_position(sys.argv[2])
+
+			if white_to_move:
+				start = logger.return_timestamp()
+				calculate_white_perft(depth, depth)
+				end = logger.return_timestamp()
+			else:
+				start = logger.return_timestamp()
+				calculate_black_perft(depth, depth)
+				end = logger.return_timestamp()
+
+			if end-start == 0:
+				print('Nodes:', nodes, ', NPS:', nodes, 'Seconds:', '0')
+			else:
+				nps = nodes / ((end - start)/1000.0)
+				print('Nodes:', nodes, ', NPS:', int(nps), 'Seconds:', round(((end - start)/1000),2))
+
+	else: 
+		print('Please initialize the program with one of the following options:')
+		print('1: python chessboard.py {white/black}')
+		print('2: python chessboard.py fen [FEN] {white/black}')
+		print('3: python chessboard.py perft [FEN] [DEPTH]')
