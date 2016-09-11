@@ -87,6 +87,7 @@ def handle_click (event):
 	elif (board_display.selected, eightx_y) in (white_move_list | black_move_list):
 		move_selected_piece(eightx_y)
 		generate_moves()
+		check_for_win_or_draw()
 
 		# Let the computer play
 		if computer_plays == 'white' or computer_plays == 'black':
@@ -102,6 +103,7 @@ def handle_click (event):
 			nodes = 0
 
 			generate_moves()
+			check_for_win_or_draw
 
 	# If a piece is selected and the user has made a non-move click
 	else:
@@ -300,7 +302,6 @@ def make_black_move(origin, destination):
 	if piece in ['b', 'r', 'q']:
 		black_pinners.remove(origin)
 		black_pinners.append(destination)
-
 
 def black_leave_square(square_to_leave):
 	global all_black_positions
@@ -918,26 +919,58 @@ def evaluate_position_and_count():
 	nodes += 1
 	return position_value
 
+def check_for_win_or_draw():
+	# Check for a win or a draw
+	checkmate = False
+	if white_to_move and len(white_move_list) == 0:
+		for move in black_move_list:
+			if white_king_eightx_y == move[1]:
+				checkmate = True
+				break
+
+		if checkmate:
+			print('White has been checkmated. Black wins!')
+			return True
+		else:
+			print('Stalemate has occurred. Draw.')
+			return True
+	
+	elif not white_to_move and len(black_move_list) == 0:
+		for move in white_move_list:
+			if black_king_eightx_y == move[1]:
+				checkmate = True
+				break
+
+		if checkmate:
+			print('Black has been checkmated. White wins!')
+			return True
+		else:
+			print('Stalemate has occurred. Draw')
+			return True
+
+	return False
+
 # ****************************************************************************
 # ******************************* SEARCH *************************************
 # ****************************************************************************
 
-def spawn_multiprocess_worker(board_state, thread_result):
+def spawn_multiprocess_worker(board_state, thread_result, all_nodes, top_level_alpha, top_level_beta):
 	import ChessBoard
 
 	initialize_board_for_spawn_process(board_state)
-
 	depth = board_state['depth']
 	initialize_transposition_table(depth)
 
 	if white_to_move:
-		result = calculate_white_move(depth, depth, -20000, 20000)
+		result = calculate_white_move(depth, depth, top_level_alpha.value, top_level_beta.value, top_level_alpha, top_level_beta)
 	else:
-		result = calculate_black_move(depth, depth, -20000, 20000)
+		result = calculate_black_move(depth, depth, top_level_alpha.value, top_level_beta.value, top_level_alpha, top_level_beta)
 
+	all_nodes.put(nodes)
 	thread_result.put(result)
 
 def computer_move(computer_plays):
+	global nodes
 	# This deepens the search in the endgame. Kind of ghetto.
 	number_of_pieces = 0
 	for element in board:
@@ -959,8 +992,12 @@ def computer_move(computer_plays):
 	# Get the number of processors
 	number_of_cpus = multiprocessing.cpu_count()
 
-	# Set the process method
+	# Define variables that will be accessible for all processes
 	thread_result = multiprocessing.Queue()
+	all_nodes = multiprocessing.Queue()
+
+	top_level_alpha = multiprocessing.Value('i', -20000)
+	top_level_beta = multiprocessing.Value('i', 20000)
 
 	# Package the data to send to each spawn
 	core_parameters = [{} for i in range(number_of_cpus)]
@@ -990,16 +1027,14 @@ def computer_move(computer_plays):
 	if white_to_move:
 		for i in range(len(white_move_list)):
 			core_parameters[i % number_of_cpus]['assigned_moves'].append(list(white_move_list)[i])
-	else:	
+	else:
 		for i in range(len(black_move_list)):
 			core_parameters[i % number_of_cpus]['assigned_moves'].append(list(black_move_list)[i])
-
 
 	# Create the worker pool
 	processes = []
 	for i in range(number_of_cpus):
-		processes.append(multiprocessing.Process(target=spawn_multiprocess_worker, args=(core_parameters[i], thread_result,)))
-
+		processes.append(multiprocessing.Process(target=spawn_multiprocess_worker, args=(core_parameters[i], thread_result, all_nodes, top_level_alpha, top_level_beta)))
 
 	for i in range(number_of_cpus):
 		processes[i].start()
@@ -1011,21 +1046,22 @@ def computer_move(computer_plays):
 	while not thread_result.empty():
 		result_list.append(thread_result.get())
 
+	while not all_nodes.empty():
+		nodes += all_nodes.get()
+
 	if computer_plays == 'white':
 		result_list = sorted(result_list, key = lambda move_and_value: move_and_value[1], reverse = True)
 	elif computer_plays == 'black':
 		result_list = sorted(result_list, key = lambda move_and_value: move_and_value[1], reverse = False)
 
-	print(result_list)
+	if not check_for_win_or_draw():
+		best_move_origin = result_list[0][0][0]
+		best_move_destination = result_list[0][0][1]
 
+		board_display.selected = best_move_origin
+		move_selected_piece(best_move_destination)
 
-	best_move_origin = result_list[0][0][0]
-	best_move_destination = result_list[0][0][1]
-
-	board_display.selected = best_move_origin
-	move_selected_piece(best_move_destination)
-
-def calculate_white_move(depth, current_depth, alpha, beta):
+def calculate_white_move(depth, current_depth, alpha, beta, top_level_alpha, top_level_beta):
 	global white_to_move
 	global transposition_table
 
@@ -1064,14 +1100,17 @@ def calculate_white_move(depth, current_depth, alpha, beta):
 			transposition_table[castles][en_passant_square][current_depth][position_string] = position_value
 		else:
 			white_to_move = not white_to_move
-			position_value = calculate_black_move(depth, current_depth - 1, alpha, beta)
+			position_value = calculate_black_move(depth, current_depth - 1, alpha, beta, top_level_alpha, top_level_beta)
 			transposition_table[castles][en_passant_square][current_depth][position_string] = position_value
 
 		position_memento.restore_current_position()
 
 		# Alpha beta logic
-		if position_value > alpha:
-			alpha = position_value
+		if depth == current_depth and position_value > top_level_alpha.value:
+			top_level_alpha.value = position_value
+
+		if max(top_level_alpha.value, position_value) > alpha:
+			alpha = max(top_level_alpha.value, position_value)
 			best_move_origin = move[0][0]
 			best_move_destination = move[0][1]
 
@@ -1080,7 +1119,7 @@ def calculate_white_move(depth, current_depth, alpha, beta):
 				return alpha
 			else: # root node
 				if best_move_origin == -1: # Checkmate has occurred.
-					return -1
+					return ((-1, -1), -20000)
 				else: 
 					return ((best_move_origin, best_move_destination), alpha)
 
@@ -1092,11 +1131,11 @@ def calculate_white_move(depth, current_depth, alpha, beta):
 		return alpha
 	else: # root node
 		if best_move_origin == -1: # Checkmate has occurred.
-			return -1
+			return ((-1, -1), -20000)
 		else: 
 			return ((best_move_origin, best_move_destination), alpha)
 
-def calculate_black_move(depth, current_depth, alpha, beta):
+def calculate_black_move(depth, current_depth, alpha, beta, top_level_alpha, top_level_beta):
 	global white_to_move
 	global transposition_table
 
@@ -1136,12 +1175,15 @@ def calculate_black_move(depth, current_depth, alpha, beta):
 			transposition_table[castles][en_passant_square][current_depth][position_string] = position_value
 		else:
 			white_to_move = not white_to_move
-			position_value = calculate_white_move(depth, current_depth - 1, alpha, beta)
+			position_value = calculate_white_move(depth, current_depth - 1, alpha, beta, top_level_alpha, top_level_beta)
 			transposition_table[castles][en_passant_square][current_depth][position_string] = position_value
 
 		position_memento.restore_current_position()
 
 		# Alpha beta logic
+		if depth == current_depth and position_value < top_level_beta.value:
+			top_level_beta.value = position_value
+
 		if position_value < beta:
 			beta = position_value
 			best_move_origin = move[0][0]
@@ -1152,7 +1194,7 @@ def calculate_black_move(depth, current_depth, alpha, beta):
 				return beta
 			else: # root node
 				if best_move_origin == -1: # Checkmate has occurred.
-					return -1
+					return ((-1, -1), 20000)
 				else: 
 					return ((best_move_origin, best_move_destination), beta)
 
@@ -1165,7 +1207,7 @@ def calculate_black_move(depth, current_depth, alpha, beta):
 		return beta
 	else: # root node
 		if best_move_origin == -1: # Checkmate has occurred.
-			return -1
+			return ((-1, -1), 20000)
 		else: 
 			return ((best_move_origin, best_move_destination), beta)
 
@@ -1395,12 +1437,17 @@ def initialize_with_fen_position(fen_string):
 	else:
 		print('The fullmove number field must be an integer.')
 
-	# Manually set up a couple bitboards
+	# Manually set up a bitboard and the pinners array
 	i = 0
 	for character in board:
 		if character in ['P', 'B', 'N', 'R', 'Q', 'K']:
+			if character in ['B', 'R', 'Q']:
+				white_pinners.append(i)
 			all_white_positions += 1 << i
 		elif character in ['p', 'b', 'n', 'r', 'q', 'k']:
+			if character in ['b', 'r', 'q']:
+				black_pinners.append(i)
+
 			all_black_positions += 1 << i
 		i += 1
 
@@ -1589,6 +1636,9 @@ if __name__ == '__main__':
 						logger.log("************************************")
 						nodes = 0
 
+						generate_moves()
+						check_for_win_or_draw()
+
 				elif sys.argv[3] == 'black': # Have the computer play black in the position specified by the FEN string
 					computer_plays = 'black'
 					if not white_to_move:
@@ -1604,6 +1654,9 @@ if __name__ == '__main__':
 						logger.log("seconds: " + str(((computer_end - computer_start)/1000.0)))
 						logger.log("************************************")
 						nodes = 0
+
+						generate_moves()
+						check_for_win_or_draw()
 
 			root.mainloop()
 
